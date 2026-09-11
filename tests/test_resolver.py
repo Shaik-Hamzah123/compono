@@ -22,6 +22,20 @@ def test_template_loads_from_default_yaml(template: Template) -> None:
     assert template.gutter == round(0.2 * 914400)
 
 
+def test_template_loads_font_family_from_default_yaml(template: Template) -> None:
+    assert template.font_family == "Calibri"
+
+
+def test_template_from_name_resolves_a_bundled_template() -> None:
+    assert Template.from_name("default").font_family == "Calibri"
+    assert Template.from_name("modern").font_family == "Georgia"
+
+
+def test_template_from_name_raises_on_unknown_name() -> None:
+    with pytest.raises(ValueError, match="No template named 'nonexistent'"):
+        Template.from_name("nonexistent")
+
+
 def test_resolve_slide_with_header_places_header_above_body(template: Template) -> None:
     header = Header(title="Q3 Results")
     body = [Text(content="Body copy")]

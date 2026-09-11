@@ -1,0 +1,25 @@
+# A second, real named template — proof that `{"template": "modern"}` in a
+# spec is a genuine choice, not just plumbing. Same page/margins as default,
+# different typeface. See COMPONO_PLAN.md section 3, item 2.
+
+name: modern
+
+page:
+  width_in: 13.333   # 16:9 widescreen
+  height_in: 7.5
+
+margin_in:
+  top: 0.5
+  right: 0.6
+  bottom: 0.5
+  left: 0.6
+
+header:
+  height_in: 1.2
+
+footer:
+  height_in: 0.4
+
+gutter_in: 0.2
+
+font_family: Georgia

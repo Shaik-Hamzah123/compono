@@ -280,21 +280,41 @@ image-generation capability just to build the deck.
 
 See `examples/full_catalog.json` in the repo for a complete, runnable spec.
 
-## Fonts and overflow validation
+## Fonts and templates
+
+A deck's typeface comes from its **template**, not a per-primitive field —
+`Deck.template` (default `"default"`) names a config file under
+`src/compono/templates/`. Two ship today: `default` (Calibri), `modern`
+(Georgia). `{"template": "modern", "slides": [...]}` is a real, visible
+choice. An unknown name is a structured `unknown_template` error, not a
+crash.
+
+**If asked for a font that isn't `default` or `modern`:** there is no
+schema field to smuggle an arbitrary typeface through a render call —
+fonts live in a reviewed template file, not per-request data.
+- With filesystem access to this repo: add a new
+  `src/compono/templates/<name>.yaml` (copy `default.yaml`'s page/margin
+  values, set `font_family`), then use `{"template": "<name>"}`.
+- With only `render_deck`/`validate` as tools (e.g. over MCP, no
+  filesystem access): you cannot invent a template on the fly. Tell the
+  user the font isn't available, list what is, and fall back or ask a
+  human to add the template file.
 
 Overflow checking (`validate`'s layout errors, and the "shrink text on
 overflow" behavior it protects against) reads real glyph advance widths via
 `fonttools` — no rendering required. As of this release, no font is bundled
 into the package yet; validation falls back to a system font if one is
-found, and is skipped — not faked — with a warning if none is available. A
-bundled, OFL-licensed safe-font list is planned before the first tagged
-release; this section will list it once shipped.
+found, and is skipped — not faked — with a warning if none is available.
+This is independent of `font_family` — overflow metrics don't yet reflect
+the template's chosen typeface (known limitation). A bundled, OFL-licensed
+safe-font list is planned before the first tagged release; this section
+will list it once shipped.
 
 ## CLI
 
 ```bash
 compono validate spec.json
-compono render spec.json --template fractal -o deck.pptx
+compono render spec.json --template modern -o deck.pptx
 ```
 
 Mirrors `validate`/`render_deck` exactly — useful when you can only shell

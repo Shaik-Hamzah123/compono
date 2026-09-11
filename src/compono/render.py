@@ -242,16 +242,38 @@ def _check_slide(
     return layout, errors, warnings
 
 
+def _unknown_template_error(detail: str) -> dict[str, Any]:
+    return {
+        "slide": None,
+        "primitive": "template",
+        "field": "template",
+        "error": "unknown_template",
+        "detail": detail,
+        "fix": "Use one of the available template names listed above, or omit `template` for the default.",
+    }
+
+
 def validate(
     spec: dict[str, Any] | Deck, *, template: Template | None = None
 ) -> ValidationReport:
     """Cheap and separate from render — no pptx write, no image render (COMPONO_PLAN.md section 8, item 4)."""
-    resolved_template = template or Template.from_yaml()
-
     try:
         deck = _parse_deck(spec)
     except DeckValidationError as exc:
         return ValidationReport(valid=False, errors=exc.errors)
+
+    # An explicit `template=` kwarg always wins; otherwise resolve the name the
+    # spec itself asked for (`Deck.template`, schema.py) — previously unwired,
+    # every render silently used the hardcoded default regardless of this field.
+    if template is not None:
+        resolved_template = template
+    else:
+        try:
+            resolved_template = Template.from_name(deck.template)
+        except ValueError as exc:
+            return ValidationReport(
+                valid=False, errors=[_unknown_template_error(str(exc))]
+            )
 
     font_path = _resolve_font_path()
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
@@ -274,10 +296,19 @@ def render_deck(
     *,
     template: Template | None = None,
 ) -> RenderReport:
-    resolved_template = template or Template.from_yaml()
     output_path = Path(output_path)
 
     deck = _parse_deck(spec)
+
+    if template is not None:
+        resolved_template = template
+    else:
+        try:
+            resolved_template = Template.from_name(deck.template)
+        except ValueError as exc:
+            raise DeckValidationError(
+                [_unknown_template_error(str(exc))]
+            ) from exc
 
     font_path = _resolve_font_path()
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
@@ -305,7 +336,7 @@ def render_deck(
     manifest: list[dict[str, Any]] = []
     for i, layout in enumerate(layouts):
         pptx_slide = prs.slides.add_slide(blank_layout)
-        _render_slide(pptx_slide, layout, i, manifest)
+        _render_slide(pptx_slide, layout, i, manifest, resolved_template)
         _render_footer(pptx_slide, resolved_template, i + 1, len(layouts))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -324,6 +355,7 @@ def _render_slide(
     layout: LayoutResult,
     slide_index: int,
     manifest: list[dict[str, Any]],
+    template: Template,
 ) -> None:
     for item_id, rect in layout.rects.items():
         primitive = layout.items.get(item_id)
@@ -331,7 +363,9 @@ def _render_slide(
             continue
         if isinstance(primitive, Shape) and primitive.kind == "connector":
             continue  # drawn below from layout.connectors, not from its own rect
-        _render_primitive(pptx_slide, primitive, rect, slide_index, item_id, manifest)
+        _render_primitive(
+            pptx_slide, primitive, rect, slide_index, item_id, manifest, template
+        )
 
     for points in layout.connectors.values():
         _render_connector(pptx_slide, points)
@@ -344,27 +378,32 @@ def _render_primitive(
     slide_index: int,
     item_id: str,
     manifest: list[dict[str, Any]],
+    template: Template,
 ) -> None:
     if isinstance(primitive, Header):
-        _render_header(pptx_slide, primitive, rect)
+        _render_header(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Text):
-        _render_text(pptx_slide, primitive, rect)
+        _render_text(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Shape):
-        _render_shape(pptx_slide, primitive, rect)
+        _render_shape(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Image):
-        _render_image(pptx_slide, primitive, rect, slide_index, item_id, manifest)
+        _render_image(
+            pptx_slide, primitive, rect, slide_index, item_id, manifest, template
+        )
     elif isinstance(primitive, Stat):
-        _render_stat(pptx_slide, primitive, rect)
+        _render_stat(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Table):
-        _render_table(pptx_slide, primitive, rect)
+        _render_table(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Sequence):
-        _render_sequence(pptx_slide, primitive, rect)
+        _render_sequence(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Chart):
         _render_chart(pptx_slide, primitive, rect)
     # Grid has no visual of its own — only its (already-flattened) children render.
 
 
-def _render_header(pptx_slide: Any, header: Header, rect: Rect) -> None:
+def _render_header(
+    pptx_slide: Any, header: Header, rect: Rect, template: Template
+) -> None:
     box = pptx_slide.shapes.add_textbox(
         Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
     )
@@ -377,23 +416,22 @@ def _render_header(pptx_slide: Any, header: Header, rect: Rect) -> None:
         p = tf.paragraphs[0]
         first = False
         p.text = header.eyebrow
-        p.font.size = Pt(12)
+        _set_font(p.font, template, 12)
         p.alignment = _ALIGN_TO_PP[header.align]
 
     p = tf.paragraphs[0] if first else tf.add_paragraph()
     p.text = header.title
-    p.font.size = Pt(HEADER_FONT_SIZE_PT)
-    p.font.bold = True
+    _set_font(p.font, template, HEADER_FONT_SIZE_PT, bold=True)
     p.alignment = _ALIGN_TO_PP[header.align]
 
     if header.subtitle:
         p = tf.add_paragraph()
         p.text = header.subtitle
-        p.font.size = Pt(16)
+        _set_font(p.font, template, 16)
         p.alignment = _ALIGN_TO_PP[header.align]
 
 
-def _render_text(pptx_slide: Any, text: Text, rect: Rect) -> None:
+def _render_text(pptx_slide: Any, text: Text, rect: Rect, template: Template) -> None:
     box = pptx_slide.shapes.add_textbox(
         Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
     )
@@ -406,7 +444,7 @@ def _render_text(pptx_slide: Any, text: Text, rect: Rect) -> None:
             text.content if isinstance(text.content, str) else " ".join(text.content)
         )
         tf.text = content
-        tf.paragraphs[0].font.size = Pt(BODY_FONT_SIZE_PT)
+        _set_font(tf.paragraphs[0].font, template, BODY_FONT_SIZE_PT)
         return
 
     items = text.content if isinstance(text.content, list) else [text.content]
@@ -414,8 +452,20 @@ def _render_text(pptx_slide: Any, text: Text, rect: Rect) -> None:
     for i, item in enumerate(items):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.text = f"\u2022 {item}"
-        p.font.size = Pt(BODY_FONT_SIZE_PT)
-        p.font.bold = i in emphasis
+        _set_font(p.font, template, BODY_FONT_SIZE_PT, bold=i in emphasis)
+
+
+def _set_font(
+    font: Any, template: Template, size_pt: float, *, bold: bool = False
+) -> None:
+    """One shared point that applies both size and typeface to a run/paragraph
+    font — `template.font_family` is the agent's choice (via `Deck.template`,
+    schema.py), never hardcoded per primitive.
+    """
+    font.size = Pt(size_pt)
+    font.name = template.font_family
+    if bold:
+        font.bold = True
 
 
 def _lighten(hex_color: str, factor: float) -> RGBColor:
@@ -442,7 +492,9 @@ def _apply_shape_gradient(sp: Any, hex_color: str) -> None:
     stops[1].color.rgb = RGBColor.from_string(base)
 
 
-def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
+def _render_shape(
+    pptx_slide: Any, shape: Shape, rect: Rect, template: Template
+) -> None:
     # "line"/"arrow" render as a straight connector across the shape's own rect;
     # arrowhead styling is a known gap, left for a follow-up once needed.
     if shape.kind in ("line", "arrow"):
@@ -478,6 +530,7 @@ def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
         tf.word_wrap = True
         tf.text = shape.text.content
         tf.vertical_anchor = _VALIGN_TO_MSO[shape.text.valign]
+        tf.paragraphs[0].font.name = template.font_family
         tf.paragraphs[0].alignment = _ALIGN_TO_PP[shape.text.align]
 
 
@@ -498,7 +551,7 @@ def _render_footer(
     tf = box.text_frame
     tf.vertical_anchor = MSO_ANCHOR.MIDDLE
     tf.text = f"{slide_number} / {total_slides}"
-    tf.paragraphs[0].font.size = Pt(10)
+    _set_font(tf.paragraphs[0].font, template, 10)
     tf.paragraphs[0].font.color.rgb = RGBColor(0x99, 0x99, 0x99)
     tf.paragraphs[0].alignment = PP_ALIGN.RIGHT
 
@@ -518,10 +571,11 @@ def _render_image(
     slide_index: int,
     item_id: str,
     manifest: list[dict[str, Any]],
+    template: Template,
 ) -> None:
     if image.placeholder or not image.src:
         _render_image_placeholder(
-            pptx_slide, image, rect, slide_index, item_id, manifest
+            pptx_slide, image, rect, slide_index, item_id, manifest, template
         )
         return
 
@@ -554,6 +608,7 @@ def _render_image_placeholder(
     slide_index: int,
     item_id: str,
     manifest: list[dict[str, Any]],
+    template: Template,
 ) -> None:
     """A first-class placeholder (COMPONO_PLAN.md section 5): dashed border + caption,
     plus a manifest entry a later image-fill pass can use without re-laying-out.
@@ -571,7 +626,7 @@ def _render_image_placeholder(
         tf.text = image.caption
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         tf.paragraphs[0].alignment = PP_ALIGN.CENTER
-        tf.paragraphs[0].font.size = Pt(CAPTION_FONT_SIZE_PT)
+        _set_font(tf.paragraphs[0].font, template, CAPTION_FONT_SIZE_PT)
         # Auto-shapes with no fill otherwise inherit a near-invisible theme text
         # color on some renderers (observed as near-white on white) — match the
         # dashed border's gray explicitly so the caption is always legible.
@@ -587,7 +642,7 @@ def _render_image_placeholder(
     )
 
 
-def _render_stat(pptx_slide: Any, stat: Stat, rect: Rect) -> None:
+def _render_stat(pptx_slide: Any, stat: Stat, rect: Rect, template: Template) -> None:
     box = pptx_slide.shapes.add_textbox(
         Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
     )
@@ -597,23 +652,24 @@ def _render_stat(pptx_slide: Any, stat: Stat, rect: Rect) -> None:
 
     p_value = tf.paragraphs[0]
     p_value.text = stat.value
-    p_value.font.size = Pt(STAT_VALUE_FONT_SIZE_PT)
-    p_value.font.bold = True
+    _set_font(p_value.font, template, STAT_VALUE_FONT_SIZE_PT, bold=True)
     p_value.alignment = PP_ALIGN.CENTER
 
     p_label = tf.add_paragraph()
     p_label.text = stat.label
-    p_label.font.size = Pt(STAT_LABEL_FONT_SIZE_PT)
+    _set_font(p_label.font, template, STAT_LABEL_FONT_SIZE_PT)
     p_label.alignment = PP_ALIGN.CENTER
 
     if stat.trend:
         p_trend = tf.add_paragraph()
         p_trend.text = stat.trend
-        p_trend.font.size = Pt(STAT_LABEL_FONT_SIZE_PT)
+        _set_font(p_trend.font, template, STAT_LABEL_FONT_SIZE_PT)
         p_trend.alignment = PP_ALIGN.CENTER
 
 
-def _render_table(pptx_slide: Any, table: Table, rect: Rect) -> None:
+def _render_table(
+    pptx_slide: Any, table: Table, rect: Rect, template: Template
+) -> None:
     n_rows = len(table.rows) + 1
     n_cols = len(table.headers)
     graphic_frame = pptx_slide.shapes.add_table(
@@ -631,21 +687,28 @@ def _render_table(pptx_slide: Any, table: Table, rect: Rect) -> None:
     for c, header_text in enumerate(table.headers):
         cell = tbl.cell(0, c)
         cell.text = header_text
-        cell.text_frame.paragraphs[0].font.bold = True
-        cell.text_frame.paragraphs[0].font.size = Pt(TABLE_FONT_SIZE_PT)
+        _set_font(
+            cell.text_frame.paragraphs[0].font, template, TABLE_FONT_SIZE_PT, bold=True
+        )
 
     for r, row in enumerate(table.rows, start=1):
         for c, value in enumerate(row):
             cell = tbl.cell(r, c)
             cell.text = value
-            cell.text_frame.paragraphs[0].font.size = Pt(TABLE_FONT_SIZE_PT)
             is_emphasis = (
                 table.emphasis_row is not None and r - 1 == table.emphasis_row
             ) or (table.emphasis_col is not None and c == table.emphasis_col)
-            cell.text_frame.paragraphs[0].font.bold = is_emphasis
+            _set_font(
+                cell.text_frame.paragraphs[0].font,
+                template,
+                TABLE_FONT_SIZE_PT,
+                bold=is_emphasis,
+            )
 
 
-def _render_sequence(pptx_slide: Any, sequence: Sequence, rect: Rect) -> None:
+def _render_sequence(
+    pptx_slide: Any, sequence: Sequence, rect: Rect, template: Template
+) -> None:
     """Compiles internally to shape + text + connectors (COMPONO_PLAN.md section 5), not a bespoke render path."""
     steps = sequence.steps
     n = len(steps)
@@ -679,13 +742,12 @@ def _render_sequence(pptx_slide: Any, sequence: Sequence, rect: Rect) -> None:
         tf.word_wrap = True
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         tf.text = step.label
-        tf.paragraphs[0].font.bold = True
-        tf.paragraphs[0].font.size = Pt(BODY_FONT_SIZE_PT)
+        _set_font(tf.paragraphs[0].font, template, BODY_FONT_SIZE_PT, bold=True)
         tf.paragraphs[0].alignment = PP_ALIGN.CENTER
         if step.description:
             p = tf.add_paragraph()
             p.text = step.description
-            p.font.size = Pt(CAPTION_FONT_SIZE_PT)
+            _set_font(p.font, template, CAPTION_FONT_SIZE_PT)
             p.alignment = PP_ALIGN.CENTER
 
     # Connect box *edges* through the gutter only — never box centers, which

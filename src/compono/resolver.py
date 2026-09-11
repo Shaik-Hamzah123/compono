@@ -41,6 +41,7 @@ class Template:
     header_height: int
     footer_height: int
     gutter: int
+    font_family: str = "Calibri"
 
     @classmethod
     def from_yaml(cls, path: Path = DEFAULT_TEMPLATE_PATH) -> Template:
@@ -57,7 +58,27 @@ class Template:
             header_height=_in_to_emu(data["header"]["height_in"]),
             footer_height=_in_to_emu(data["footer"]["height_in"]),
             gutter=_in_to_emu(data["gutter_in"]),
+            font_family=data.get("font_family", "Calibri"),
         )
+
+    @classmethod
+    def from_name(cls, name: str) -> Template:
+        """Resolve a `Deck.template` name (schema.py) to a bundled templates/*.yaml.
+
+        `Deck.template` has always been agent-facing in the schema, but was
+        never actually wired to anything until this — every render used
+        `from_yaml()`'s hardcoded default regardless of what the spec said.
+        """
+        path = DEFAULT_TEMPLATE_PATH.parent / f"{name}.yaml"
+        if not path.exists():
+            available = sorted(
+                p.stem for p in DEFAULT_TEMPLATE_PATH.parent.glob("*.yaml")
+            )
+            raise ValueError(
+                f"No template named {name!r} under templates/. "
+                f"Available: {', '.join(available)}."
+            )
+        return cls.from_yaml(path)
 
 
 @dataclass(frozen=True)

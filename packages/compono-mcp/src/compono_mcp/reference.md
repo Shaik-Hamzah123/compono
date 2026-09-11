@@ -261,9 +261,23 @@ image-generation capability just to build the deck.
 }
 ```
 
+## Fonts and templates
+
+A deck's typeface comes from its **template**, not a per-primitive field —
+`Deck.template` (default `"default"`) names a config file under
+`src/compono/templates/`. Two ship today: `default` (Calibri), `modern`
+(Georgia). An unknown name is a structured `unknown_template` error.
+
+A `font_family` is just a name written into the file — PowerPoint resolves
+it against fonts installed on whoever opens the deck; compono does not
+embed font files. If asked for a font that isn't `default`/`modern`, there
+is no schema field for it — either fall back to an existing template, or
+(with filesystem access to this repo) add a new `templates/<name>.yaml`.
+
 ## Fonts and overflow validation
 
 Overflow checking reads real glyph advance widths via `fonttools` — no
 rendering required. As of this release, no font is bundled yet; validation
 falls back to a system font if one is found, and is skipped — not faked —
-with a warning if none is available.
+with a warning if none is available. This is independent of `font_family`
+— overflow metrics don't yet reflect the template's chosen typeface.

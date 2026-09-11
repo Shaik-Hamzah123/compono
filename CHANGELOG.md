@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-12
+
+### Added
+- A deck's typeface is now a real, working choice: `templates/*.yaml`
+  gained a `font_family` key, applied via one shared `_set_font` helper
+  everywhere text is rendered (header, text, stat, shape text, table,
+  sequence, footer, image caption). A second bundled template,
+  `templates/modern.yaml` (Georgia), proves it end-to-end alongside
+  `default.yaml` (Calibri).
+- `Deck.template` (schema.py) — present in the schema since the first
+  release but never actually wired to anything — now really selects a
+  template: `Template.from_name(name)` resolves it, both `validate()` and
+  `render_deck()` use it when no explicit `template=` kwarg is given, and
+  the CLI's `--template` flag (previously a documented no-op) now works,
+  overriding the spec's own field when both are given. An unknown
+  template name is a structured `unknown_template` error, not a crash.
+
+### Known limitations (new)
+- `font_family` is a name written into the file, not an embedded font —
+  PowerPoint resolves it against whatever's installed on the viewer's
+  machine; compono does not embed font files.
+- Overflow validation's glyph metrics don't yet reflect a template's
+  chosen `font_family` — wrap/overflow math still measures off whichever
+  bundled/system font `_resolve_font_path` finds, regardless of what the
+  deck actually renders in.
+- Chart category/series labels are not yet threaded through
+  `font_family` — python-pptx's chart font API is a separate surface not
+  otherwise touched in this codebase; they still use the theme default.
+
 ## [0.1.2] - 2026-09-12
 
 ### Changed

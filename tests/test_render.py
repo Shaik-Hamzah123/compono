@@ -146,6 +146,59 @@ def test_render_deck_respects_explicit_template(tmp_path: Path) -> None:
     assert prs.slide_height == template.page_height
 
 
+def test_render_deck_uses_the_font_family_named_by_deck_template(
+    tmp_path: Path,
+) -> None:
+    """`Deck.template` (schema.py) was previously unwired — every render used
+    the hardcoded default regardless of what the spec asked for.
+    """
+    spec = {**MINIMAL_SPEC, "template": "modern"}
+    output = tmp_path / "deck.pptx"
+    render_deck(spec, output)
+
+    prs = Presentation(str(output))
+    fonts = {
+        p.font.name
+        for slide in prs.slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+        for p in shape.text_frame.paragraphs
+    }
+    assert fonts == {"Georgia"}
+
+
+def test_render_deck_raises_on_unknown_template_name(tmp_path: Path) -> None:
+    spec = {**MINIMAL_SPEC, "template": "nonexistent"}
+    with pytest.raises(DeckValidationError) as exc_info:
+        render_deck(spec, tmp_path / "out.pptx")
+    assert exc_info.value.errors[0]["error"] == "unknown_template"
+
+
+def test_validate_reports_unknown_template_name_as_a_structured_error() -> None:
+    spec = {**MINIMAL_SPEC, "template": "nonexistent"}
+    report = validate(spec)
+    assert report.valid is False
+    assert report.errors[0]["error"] == "unknown_template"
+
+
+def test_explicit_template_kwarg_overrides_deck_template_field(
+    tmp_path: Path,
+) -> None:
+    spec = {**MINIMAL_SPEC, "template": "modern"}
+    output = tmp_path / "deck.pptx"
+    render_deck(spec, output, template=Template.from_yaml())  # "default"
+
+    prs = Presentation(str(output))
+    fonts = {
+        p.font.name
+        for slide in prs.slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+        for p in shape.text_frame.paragraphs
+    }
+    assert fonts == {"Calibri"}
+
+
 def test_cli_validate_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     spec_path = tmp_path / "minimal.json"
     spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
@@ -166,6 +219,45 @@ def test_cli_render_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) ->
     assert exit_code == 0
     assert result["pptx_path"] == str(output)
     assert output.exists()
+
+
+def test_cli_render_template_flag_overrides_deck_template(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    spec_path = tmp_path / "minimal.json"
+    spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    output = tmp_path / "cli_deck.pptx"
+    exit_code = cli_main(
+        ["render", str(spec_path), "-o", str(output), "--template", "modern"]
+    )
+    assert exit_code == 0
+    capsys.readouterr()
+
+    prs = Presentation(str(output))
+    fonts = {
+        p.font.name
+        for slide in prs.slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+        for p in shape.text_frame.paragraphs
+    }
+    assert fonts == {"Georgia"}
+
+
+def test_cli_render_unknown_template_flag_fails_cleanly(tmp_path: Path) -> None:
+    spec_path = tmp_path / "minimal.json"
+    spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    exit_code = cli_main(
+        [
+            "render",
+            str(spec_path),
+            "-o",
+            str(tmp_path / "out.pptx"),
+            "--template",
+            "nonexistent",
+        ]
+    )
+    assert exit_code == 1
 
 
 def test_validate_accepts_full_catalog_spec() -> None:
