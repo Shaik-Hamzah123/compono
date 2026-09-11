@@ -117,6 +117,14 @@ class Shape(PrimitiveBase):
         default=None,
         description="Fill color, e.g. a hex string. Omit for no fill / template default.",
     )
+    fill_style: Literal["solid", "gradient"] = Field(
+        default="solid",
+        description=(
+            "'solid' (default) is a flat fill. 'gradient' blends a lighter tint of "
+            "`fill` into the color itself, top to bottom — an explicit choice, not "
+            "applied automatically, so use it only where it fits the deck's look."
+        ),
+    )
     border: str | None = Field(
         default=None, description="Border color, e.g. a hex string. Omit for no border."
     )

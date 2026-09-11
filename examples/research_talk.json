@@ -61,7 +61,9 @@
           "rows": [
             ["Dense-1T", "81.2%", "1.00x"],
             ["Sparse-1T (ours)", "83.6%", "0.34x"],
-            ["Prior sparse work", "79.8%", "0.41x"]
+            ["Prior sparse work", "79.8%", "0.41x"],
+            ["Switch Transformer", "80.1%", "0.52x"],
+            ["GLaM", "82.0%", "0.46x"]
           ],
           "emphasis_row": 1
         }

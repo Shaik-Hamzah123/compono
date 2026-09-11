@@ -110,8 +110,8 @@ def test_resolved_rects_do_not_overlap_non_descendants(
 
 
 def test_header_title_text_round_trips_as_real_text(tmp_path: Path) -> None:
-    spec = json.loads((EXAMPLES_DIR / "minimal.json").read_text(encoding="utf-8"))
-    output = tmp_path / "minimal.pptx"
+    spec = json.loads((EXAMPLES_DIR / "full_catalog.json").read_text(encoding="utf-8"))
+    output = tmp_path / "full_catalog.pptx"
     render_deck(spec, output)
 
     prs = Presentation(str(output))

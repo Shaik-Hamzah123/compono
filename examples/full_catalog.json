@@ -6,8 +6,12 @@
         { "primitive": "stat", "value": "42%", "label": "YoY growth", "trend": "+12% vs last quarter" },
         {
           "primitive": "table",
-          "headers": ["Quarter", "Revenue"],
-          "rows": [["Q1", "10"], ["Q2", "14"]],
+          "headers": ["Quarter", "Revenue", "Costs", "Net margin"],
+          "rows": [
+            ["Q1", "10.0", "6.2", "38%"],
+            ["Q2", "14.0", "7.1", "49%"],
+            ["Q3 (fcst)", "17.5", "8.0", "54%"]
+          ],
           "emphasis_row": 1
         }
       ]
@@ -21,14 +25,18 @@
           "steps": [
             { "label": "Discover", "description": "Understand the problem" },
             { "label": "Design", "description": "Sketch options" },
+            { "label": "Build", "description": "Implement + test" },
             { "label": "Ship", "description": "Release to users" }
           ]
         },
         {
           "primitive": "chart",
           "chart_type": "bar",
-          "categories": ["Q1", "Q2"],
-          "series": [{ "name": "Revenue", "values": [10, 14] }]
+          "categories": ["Q1", "Q2", "Q3", "Q4"],
+          "series": [
+            { "name": "Revenue", "values": [10, 14, 17, 21] },
+            { "name": "Costs", "values": [6, 7, 8, 9] }
+          ]
         }
       ]
     },

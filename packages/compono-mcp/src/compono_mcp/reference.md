@@ -7,7 +7,8 @@
 
 # compono
 
-**Agent-oriented, code-based PPTX generation — "Manim, but for PowerPoint."**
+**Agent-oriented, code-based PPTX generation.** Describe a deck as typed
+primitives — an LLM agent never writes raw coordinates or touches OOXML.
 
 compono lets you describe a slide deck as data — headers, bullet text,
 stats, tables, charts, images, process sequences, shapes — and get back a
@@ -121,7 +122,7 @@ make by composing primitives, not a schema type to pick.
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
 
 ### Image placeholders
 

@@ -2,7 +2,7 @@
 
 Covers the two public verbs (render_deck/validate) end-to-end for the v1
 primitive slice (header, text, grid, shape), plus a CLI smoke test against
-examples/minimal.json.
+an inline minimal spec.
 """
 
 import json
@@ -16,10 +16,62 @@ from compono.render import DeckValidationError, render_deck, validate
 from compono.resolver import Template
 
 EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
-MINIMAL_SPEC = json.loads((EXAMPLES_DIR / "minimal.json").read_text(encoding="utf-8"))
 FULL_CATALOG_SPEC = json.loads(
     (EXAMPLES_DIR / "full_catalog.json").read_text(encoding="utf-8")
 )
+
+# Kept inline (not examples/minimal.json, which was removed as a showcase
+# example — every example deck is now real reference material, not a bare
+# smoke-test fixture) so this suite has no dependency on the examples/ dir
+# beyond the genuinely representative decks.
+MINIMAL_SPEC = {
+    "slides": [
+        {
+            "header": {
+                "title": "Welcome to compono",
+                "subtitle": "Agent-oriented, code-based PPTX generation",
+                "eyebrow": "Demo",
+            },
+            "body": [
+                {
+                    "primitive": "text",
+                    "mode": "bullets",
+                    "content": [
+                        "The agent never writes raw x/y/w/h coordinates",
+                        "A constraint-based resolver computes real EMU positions",
+                        "Every primitive renders as a genuine, editable OOXML shape",
+                    ],
+                    "emphasis_indices": [2],
+                },
+                {
+                    "primitive": "grid",
+                    "columns": 2,
+                    "items": [
+                        {
+                            "primitive": "shape",
+                            "id": "box-a",
+                            "kind": "rounded_rect",
+                            "fill": "#4F46E5",
+                            "text": {"content": "Box A"},
+                        },
+                        {
+                            "primitive": "shape",
+                            "id": "box-b",
+                            "kind": "rounded_rect",
+                            "fill": "#059669",
+                            "text": {"content": "Box B"},
+                        },
+                    ],
+                },
+                {
+                    "primitive": "shape",
+                    "kind": "connector",
+                    "connects": {"from_id": "box-a", "to_id": "box-b"},
+                },
+            ],
+        }
+    ]
+}
 
 
 def test_validate_accepts_minimal_spec() -> None:
@@ -94,8 +146,10 @@ def test_render_deck_respects_explicit_template(tmp_path: Path) -> None:
     assert prs.slide_height == template.page_height
 
 
-def test_cli_validate_smoke(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = cli_main(["validate", str(EXAMPLES_DIR / "minimal.json")])
+def test_cli_validate_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    spec_path = tmp_path / "minimal.json"
+    spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    exit_code = cli_main(["validate", str(spec_path)])
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     assert exit_code == 0
@@ -103,10 +157,10 @@ def test_cli_validate_smoke(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_cli_render_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    spec_path = tmp_path / "minimal.json"
+    spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
     output = tmp_path / "cli_deck.pptx"
-    exit_code = cli_main(
-        ["render", str(EXAMPLES_DIR / "minimal.json"), "-o", str(output)]
-    )
+    exit_code = cli_main(["render", str(spec_path), "-o", str(output)])
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     assert exit_code == 0
@@ -166,14 +220,14 @@ def test_render_deck_sequence_draws_connectors_between_steps(tmp_path: Path) -> 
     render_deck(FULL_CATALOG_SPEC, output)
 
     prs = Presentation(str(output))
-    # 3 sequence steps -> 2 connectors between them (plus none from other primitives here)
+    # 4 sequence steps -> 3 connectors between them (plus none from other primitives here)
     connectors = [
         shape
         for slide in prs.slides
         for shape in slide.shapes
         if shape.shape_type == MSO_SHAPE_TYPE.LINE
     ]
-    assert len(connectors) == 2
+    assert len(connectors) == 3
 
 
 def test_render_deck_sequence_connectors_run_through_the_gutter_not_the_boxes(
@@ -192,10 +246,11 @@ def test_render_deck_sequence_connectors_run_through_the_gutter_not_the_boxes(
         for slide in prs.slides
         for shape in slide.shapes
         if shape.has_text_frame
-        and shape.text_frame.text.splitlines()[0] in ("Discover", "Design", "Ship")
+        and shape.text_frame.text.splitlines()[0]
+        in ("Discover", "Design", "Build", "Ship")
     ]
     step_boxes.sort(key=lambda s: s.left)
-    assert len(step_boxes) == 3
+    assert len(step_boxes) == 4
 
     connectors = sorted(
         (
@@ -206,7 +261,7 @@ def test_render_deck_sequence_connectors_run_through_the_gutter_not_the_boxes(
         ),
         key=lambda s: s.left,
     )
-    assert len(connectors) == 2
+    assert len(connectors) == 3
 
     for box, connector in zip(step_boxes, connectors, strict=False):
         box_right_edge = box.left + box.width

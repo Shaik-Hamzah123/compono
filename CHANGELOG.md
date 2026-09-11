@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-12
+
+### Changed
+- `shape.fill_style` (`"solid" | "gradient"`, default `"solid"`) replaces the
+  automatic gradient every filled shape got in 0.1.1. Gradients looked good
+  in our own example decks, but imposing one on every agent-filled shape
+  took away a real design decision that belongs to the agent — a shape
+  with `fill` now renders flat unless `fill_style: "gradient"` is set
+  explicitly. Every example deck that previously relied on the automatic
+  look now sets `fill_style: "gradient"` explicitly instead.
+- Enriched every example deck's data volume (`text` bullets, `chart`
+  categories/series, `table` rows, `grid` items — including a nested
+  grid-of-grids and an 8-node architecture diagram) so they read as
+  realistic agent output rather than thin smoke-test fixtures.
+- `examples/minimal.json` removed as a showcase example — every remaining
+  example deck is now genuinely representative reference material. The
+  equivalent spec is kept inline in `tests/test_render.py` as a smoke-test
+  fixture, so no test coverage was lost.
+
 ## [0.1.1] - 2026-09-12
 
 A visual-quality pass, prompted by rendering every example deck to a real

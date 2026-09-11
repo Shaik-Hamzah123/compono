@@ -17,7 +17,9 @@
           "content": [
             "Why photosynthesis matters for all life on Earth",
             "Light-dependent vs. light-independent reactions",
-            "Real-world impact: agriculture and climate"
+            "The role of chlorophyll and chloroplast structure",
+            "Real-world impact: agriculture and climate",
+            "Open questions researchers are still tackling"
           ]
         }
       ]
@@ -43,8 +45,8 @@
         {
           "primitive": "chart",
           "chart_type": "bar",
-          "categories": ["C3 plants", "C4 plants", "CAM plants"],
-          "series": [{ "name": "Efficiency (%)", "values": [22, 30, 18] }]
+          "categories": ["C3 plants", "C4 plants", "CAM plants", "Algae", "Cyanobacteria"],
+          "series": [{ "name": "Efficiency (%)", "values": [22, 30, 18, 25, 15] }]
         }
       ]
     },

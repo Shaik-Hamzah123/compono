@@ -4,12 +4,14 @@
       "header": {
         "eyebrow": "DevConf 2026",
         "title": "Building Reliable Agent Systems",
-        "subtitle": "Sam Rivera — Staff Engineer, Atlas",
+        "subtitle": "Sam Rivera \u2014 Staff Engineer, Atlas",
         "align": "center"
       }
     },
     {
-      "header": { "title": "Agenda" },
+      "header": {
+        "title": "Agenda"
+      },
       "body": [
         {
           "primitive": "text",
@@ -24,13 +26,22 @@
       ]
     },
     {
-      "header": { "title": "The Problem" },
+      "header": {
+        "title": "The Problem"
+      },
       "body": [
-        { "primitive": "stat", "value": "73%", "label": "of agent demos fail in production", "trend": "internal survey, n=142" }
+        {
+          "primitive": "stat",
+          "value": "73%",
+          "label": "of agent demos fail in production",
+          "trend": "internal survey, n=142"
+        }
       ]
     },
     {
-      "header": { "title": "Our Architecture" },
+      "header": {
+        "title": "Our Architecture"
+      },
       "body": [
         {
           "primitive": "grid",
@@ -41,56 +52,110 @@
               "primitive": "shape",
               "kind": "rounded_rect",
               "fill": "#2563EB",
-              "text": { "content": "Planner", "align": "center", "valign": "middle" }
+              "text": {
+                "content": "Planner",
+                "align": "center",
+                "valign": "middle"
+              },
+              "fill_style": "gradient"
             },
             {
               "id": "executor",
               "primitive": "shape",
               "kind": "rounded_rect",
               "fill": "#7C3AED",
-              "text": { "content": "Executor", "align": "center", "valign": "middle" }
+              "text": {
+                "content": "Executor",
+                "align": "center",
+                "valign": "middle"
+              },
+              "fill_style": "gradient"
             }
           ]
         },
-        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "planner", "to_id": "executor" } }
-      ]
-    },
-    {
-      "header": { "title": "Latency, Release Over Release" },
-      "body": [
         {
-          "primitive": "chart",
-          "chart_type": "line",
-          "categories": ["v1", "v2", "v3"],
-          "series": [{ "name": "p50 latency (ms)", "values": [820, 410, 190] }]
+          "primitive": "shape",
+          "kind": "connector",
+          "connects": {
+            "from_id": "planner",
+            "to_id": "executor"
+          }
         }
       ]
     },
     {
-      "header": { "title": "Live Demo" },
+      "header": {
+        "title": "Latency, Release Over Release"
+      },
       "body": [
-        { "primitive": "image", "placeholder": true, "caption": "Live demo recording goes here", "fit": "cover" }
+        {
+          "primitive": "chart",
+          "chart_type": "line",
+          "categories": [
+            "v1",
+            "v2",
+            "v3",
+            "v4"
+          ],
+          "series": [
+            {
+              "name": "p50 latency (ms)",
+              "values": [
+                820,
+                410,
+                190,
+                120
+              ]
+            },
+            {
+              "name": "p99 latency (ms)",
+              "values": [
+                2400,
+                1100,
+                520,
+                310
+              ]
+            }
+          ]
+        }
       ]
     },
     {
-      "header": { "title": "Key Takeaways" },
+      "header": {
+        "title": "Live Demo"
+      },
+      "body": [
+        {
+          "primitive": "image",
+          "placeholder": true,
+          "caption": "Live demo recording goes here",
+          "fit": "cover"
+        }
+      ]
+    },
+    {
+      "header": {
+        "title": "Key Takeaways"
+      },
       "body": [
         {
           "primitive": "text",
           "mode": "bullets",
           "content": [
-            "Separate planning from execution — verify before acting",
+            "Separate planning from execution \u2014 verify before acting",
             "Measure production failure modes, not just demo success",
             "Small latency wins compound across a long agent trajectory"
           ],
-          "emphasis_indices": [0]
+          "emphasis_indices": [
+            0
+          ]
         }
       ]
     },
     {
       "header": {
         "title": "Thank You",
-        "subtitle": "@samrivera — questions welcome",
+        "subtitle": "@samrivera \u2014 questions welcome",
         "align": "center"
       }
     }

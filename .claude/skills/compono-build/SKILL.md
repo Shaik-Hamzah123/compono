@@ -90,4 +90,6 @@ pattern, then touch, in order:
 - Structured error shape: `validator.build_overflow_error`,
   `render._pydantic_error_to_dict`.
 - End-to-end wiring: `render.py`'s `validate`/`render_deck`, exercised in
-  `tests/test_render.py` against `examples/minimal.json`.
+  `tests/test_render.py` against an inline minimal spec (kept in the test
+  file, not `examples/`, since every example deck is now real reference
+  material rather than a bare smoke-test fixture).

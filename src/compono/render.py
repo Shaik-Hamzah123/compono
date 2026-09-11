@@ -428,12 +428,11 @@ def _lighten(hex_color: str, factor: float) -> RGBColor:
     )
 
 
-def _apply_shape_fill(sp: Any, hex_color: str) -> None:
-    """A deliberate, consistent gradient (light tint -> the given color, top to
-    bottom) for every filled shape — matching the polished look
-    `sequence` step boxes already got by accident from PowerPoint's default
-    theme gradient, rather than leaving that inconsistent with plain flat
-    fills everywhere else.
+def _apply_shape_gradient(sp: Any, hex_color: str) -> None:
+    """Blend a light tint of `hex_color` into the color itself, top to bottom.
+
+    Only used when a shape explicitly opts in via `fill_style="gradient"` —
+    the fill style is the agent's choice, not something render.py imposes.
     """
     base = hex_color.lstrip("#")
     sp.fill.gradient()
@@ -461,8 +460,11 @@ def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
         mso_shape, Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
     )
 
-    if shape.fill:
-        _apply_shape_fill(sp, shape.fill)
+    if shape.fill and shape.fill_style == "gradient":
+        _apply_shape_gradient(sp, shape.fill)
+    elif shape.fill:
+        sp.fill.solid()
+        sp.fill.fore_color.rgb = RGBColor.from_string(shape.fill.lstrip("#"))
     else:
         sp.fill.background()
 

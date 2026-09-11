@@ -1,6 +1,7 @@
 # compono
 
-**Agent-oriented, code-based PPTX generation — "Manim, but for PowerPoint."**
+**Agent-oriented, code-based PPTX generation.** Describe a deck as typed
+primitives — an LLM agent never writes raw coordinates or touches OOXML.
 
 compono lets an LLM agent (or a human) describe a slide deck as data —
 headers, bullet text, stats, tables, charts, images, process sequences,
@@ -40,8 +41,7 @@ a layered system architecture, built entirely from `examples/architecture_diagra
 
 See `examples/` for the full specs (`client_proposal.json`,
 `conference_talk.json`, `research_talk.json`, `college_presentation.json`,
-`fun_explainer.json`, `architecture_diagram.json`, plus `minimal.json` and
-`full_catalog.json`).
+`fun_explainer.json`, `architecture_diagram.json`, and `full_catalog.json`).
 
 ## Install
 
@@ -158,7 +158,7 @@ references it, e.g. a connector) and an optional `notes` (speaker notes).
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
 
 Every schema field's description is written as an instruction (e.g. "Keep
 under ~60 characters — longer titles will be shrunk by the resolver"), not
@@ -246,8 +246,8 @@ itself never needs image-generation capability.
 }
 ```
 
-See `examples/minimal.json` and `examples/full_catalog.json` for complete,
-runnable specs (also used as test fixtures).
+See `examples/full_catalog.json` for a complete, runnable spec (also used
+as a test fixture).
 
 ## Fonts and overflow validation
 

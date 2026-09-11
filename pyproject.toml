@@ -1,7 +1,7 @@
 [project]
 name = "compono"
-version = "0.1.1"
-description = "Agent-oriented, code-based PPTX generation library — Manim, but for PowerPoint."
+version = "0.1.2"
+description = "Agent-oriented, code-based PPTX generation library — typed primitives, no raw coordinates."
 readme = "README.md"
 license = "MIT"
 authors = [

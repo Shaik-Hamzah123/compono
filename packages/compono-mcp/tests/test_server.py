@@ -1,7 +1,7 @@
 """Tests for compono_mcp.server — call the underlying tool functions directly
-(no live stdio transport needed) with a small inline spec, mirroring
-examples/minimal.json's shape (not a cross-package file reference, since an
-installed compono-mcp wheel won't carry compono's examples/ directory).
+(no live stdio transport needed) with a small inline spec (not a
+cross-package file reference, since an installed compono-mcp wheel won't
+carry compono's examples/ directory).
 """
 
 from pathlib import Path
@@ -31,10 +31,19 @@ def test_validate_deck_accepts_valid_spec() -> None:
 
 
 def test_validate_deck_returns_structured_errors_for_malformed_spec() -> None:
-    result = validate_deck({"slides": [{"body": [{"primitive": "header"}]}]})  # missing required title
+    result = validate_deck(
+        {"slides": [{"body": [{"primitive": "header"}]}]}
+    )  # missing required title
     assert result["valid"] is False
     error = result["errors"][0]
-    assert set(error.keys()) >= {"slide", "primitive", "field", "error", "detail", "fix"}
+    assert set(error.keys()) >= {
+        "slide",
+        "primitive",
+        "field",
+        "error",
+        "detail",
+        "fix",
+    }
 
 
 def test_render_deck_tool_writes_a_real_pptx(tmp_path: Path) -> None:
@@ -46,9 +55,13 @@ def test_render_deck_tool_writes_a_real_pptx(tmp_path: Path) -> None:
     assert "warnings" in result
 
 
-def test_render_deck_tool_returns_structured_errors_instead_of_raising(tmp_path: Path) -> None:
+def test_render_deck_tool_returns_structured_errors_instead_of_raising(
+    tmp_path: Path,
+) -> None:
     output = tmp_path / "deck.pptx"
-    result = render_deck_tool({"slides": [{"body": [{"primitive": "header"}]}]}, str(output))
+    result = render_deck_tool(
+        {"slides": [{"body": [{"primitive": "header"}]}]}, str(output)
+    )
 
     assert result["valid"] is False
     assert result["errors"]

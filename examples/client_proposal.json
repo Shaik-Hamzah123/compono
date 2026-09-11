@@ -4,71 +4,154 @@
       "header": {
         "eyebrow": "Q3 2026 Review",
         "title": "Atlas Platform",
-        "subtitle": "Quarterly Business Review — Engineering & Product",
+        "subtitle": "Quarterly Business Review \u2014 Engineering & Product",
         "align": "center"
       }
     },
     {
-      "header": { "title": "This Quarter at a Glance" },
+      "header": {
+        "title": "This Quarter at a Glance"
+      },
       "body": [
         {
           "primitive": "grid",
           "columns": 3,
           "items": [
-            { "primitive": "stat", "value": "42%", "label": "YoY revenue growth", "trend": "+12% vs Q2" },
-            { "primitive": "stat", "value": "1.8M", "label": "Monthly active users", "trend": "+340K vs Q2" },
-            { "primitive": "stat", "value": "99.97%", "label": "Platform uptime", "trend": "+0.04pp vs Q2" }
+            {
+              "primitive": "stat",
+              "value": "42%",
+              "label": "YoY revenue growth",
+              "trend": "+12% vs Q2"
+            },
+            {
+              "primitive": "stat",
+              "value": "1.8M",
+              "label": "Monthly active users",
+              "trend": "+340K vs Q2"
+            },
+            {
+              "primitive": "stat",
+              "value": "99.97%",
+              "label": "Platform uptime",
+              "trend": "+0.04pp vs Q2"
+            }
           ]
         }
       ]
     },
     {
-      "header": { "title": "Revenue Trend" },
+      "header": {
+        "title": "Revenue Trend"
+      },
       "body": [
         {
           "primitive": "chart",
           "chart_type": "bar",
-          "categories": ["Q1", "Q2", "Q3"],
+          "categories": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4 (fcst)"
+          ],
           "series": [
-            { "name": "Revenue", "values": [8.2, 10.1, 14.3] },
-            { "name": "Costs", "values": [5.1, 5.6, 6.4] }
+            {
+              "name": "Revenue",
+              "values": [
+                8.2,
+                10.1,
+                14.3,
+                18.6
+              ]
+            },
+            {
+              "name": "Costs",
+              "values": [
+                5.1,
+                5.6,
+                6.4,
+                7.2
+              ]
+            }
           ]
         }
       ]
     },
     {
-      "header": { "title": "Where Engineering Time Went" },
+      "header": {
+        "title": "Where Engineering Time Went"
+      },
       "body": [
         {
           "primitive": "table",
-          "headers": ["Workstream", "Engineer-weeks", "Status"],
+          "headers": [
+            "Workstream",
+            "Engineer-weeks",
+            "Status"
+          ],
           "rows": [
-            ["Platform reliability", "18", "Complete"],
-            ["Layout resolver v2", "26", "In progress"],
-            ["MCP server", "9", "Complete"],
-            ["Billing migration", "14", "In progress"]
+            [
+              "Platform reliability",
+              "18",
+              "Complete"
+            ],
+            [
+              "Layout resolver v2",
+              "26",
+              "In progress"
+            ],
+            [
+              "MCP server",
+              "9",
+              "Complete"
+            ],
+            [
+              "Billing migration",
+              "14",
+              "In progress"
+            ],
+            [
+              "Onboarding redesign",
+              "11",
+              "Not started"
+            ]
           ],
           "emphasis_row": 1
         }
       ]
     },
     {
-      "header": { "title": "Our Process" },
+      "header": {
+        "title": "Our Process"
+      },
       "body": [
         {
           "primitive": "sequence",
           "orientation": "horizontal",
           "steps": [
-            { "label": "Discover", "description": "Customer interviews" },
-            { "label": "Design", "description": "Spec + review" },
-            { "label": "Build", "description": "Implement + test" },
-            { "label": "Ship", "description": "Roll out + monitor" }
+            {
+              "label": "Discover",
+              "description": "Customer interviews"
+            },
+            {
+              "label": "Design",
+              "description": "Spec + review"
+            },
+            {
+              "label": "Build",
+              "description": "Implement + test"
+            },
+            {
+              "label": "Ship",
+              "description": "Roll out + monitor"
+            }
           ]
         }
       ]
     },
     {
-      "header": { "title": "Before vs. After" },
+      "header": {
+        "title": "Before vs. After"
+      },
       "body": [
         {
           "primitive": "grid",
@@ -79,32 +162,92 @@
               "primitive": "shape",
               "kind": "rounded_rect",
               "fill": "#DC2626",
-              "text": { "content": "Manual layout: hours per deck, hand-placed coordinates" }
+              "text": {
+                "content": "Manual layout: hours per deck, hand-placed coordinates"
+              },
+              "fill_style": "gradient"
             },
             {
               "id": "after-card",
               "primitive": "shape",
               "kind": "rounded_rect",
               "fill": "#059669",
-              "text": { "content": "compono: minutes per deck, resolver-computed layout" }
+              "text": {
+                "content": "compono: minutes per deck, resolver-computed layout"
+              },
+              "fill_style": "gradient"
             }
           ]
         },
         {
           "primitive": "shape",
           "kind": "connector",
-          "connects": { "from_id": "before-card", "to_id": "after-card" }
+          "connects": {
+            "from_id": "before-card",
+            "to_id": "after-card"
+          }
         }
       ]
     },
     {
-      "header": { "title": "Team & Roadmap" },
+      "header": {
+        "title": "Org Structure"
+      },
       "body": [
         {
           "primitive": "grid",
           "columns": 2,
           "items": [
-            { "primitive": "image", "placeholder": true, "caption": "Team photo goes here" },
+            {
+              "primitive": "grid",
+              "columns": 1,
+              "items": [
+                {
+                  "primitive": "stat",
+                  "value": "4",
+                  "label": "engineering pods"
+                },
+                {
+                  "primitive": "stat",
+                  "value": "22",
+                  "label": "engineers across pods"
+                }
+              ]
+            },
+            {
+              "primitive": "grid",
+              "columns": 1,
+              "items": [
+                {
+                  "primitive": "stat",
+                  "value": "6",
+                  "label": "product managers"
+                },
+                {
+                  "primitive": "stat",
+                  "value": "3",
+                  "label": "designers embedded per pod"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "header": {
+        "title": "Team & Roadmap"
+      },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "items": [
+            {
+              "primitive": "image",
+              "placeholder": true,
+              "caption": "Team photo goes here"
+            },
             {
               "primitive": "text",
               "mode": "bullets",
@@ -112,9 +255,12 @@
                 "Bundle a real OFL-licensed font",
                 "Content-aware layout sizing (no more equal-height fallback)",
                 "compono-mcp HTTP transport",
-                "Peer-to-peer shape alignment"
+                "Peer-to-peer shape alignment",
+                "Automated design review with actionable fixes"
               ],
-              "emphasis_indices": [1]
+              "emphasis_indices": [
+                1
+              ]
             }
           ]
         }
