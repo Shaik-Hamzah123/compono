@@ -265,6 +265,16 @@ Exposes `validate_deck`/`render_deck_tool` tools (identical `spec` shape to
 the Python API) and a `compono://reference` resource carrying the full
 agent-facing reference doc, for clients without Claude Code's skill system.
 
+## Claude Code plugin
+
+This repo is also a Claude Code plugin marketplace, bundling the
+`skills/compono/SKILL.md` reference doc as an installable skill:
+
+```
+/plugin marketplace add Shaik-Hamzah123/compono
+/plugin install compono
+```
+
 ## Contributing
 
 See `CONTRIBUTING.md` for dev setup, branching, and code style. If you're

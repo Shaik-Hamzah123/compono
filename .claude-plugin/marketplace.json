@@ -1,0 +1,14 @@
+{
+  "name": "compono",
+  "owner": {
+    "name": "Shaik-Hamzah123",
+    "url": "https://github.com/Shaik-Hamzah123"
+  },
+  "plugins": [
+    {
+      "name": "compono",
+      "source": "./",
+      "description": "Build PowerPoint (.pptx) decks as data — typed primitives rendered via a constraint-based layout resolver, with real editable shapes (never flattened images/video)."
+    }
+  ]
+}

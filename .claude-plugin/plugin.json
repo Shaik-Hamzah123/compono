@@ -1,0 +1,13 @@
+{
+  "name": "compono",
+  "displayName": "compono",
+  "version": "0.1.0",
+  "description": "Build PowerPoint (.pptx) decks as data — typed primitives rendered via a constraint-based layout resolver, with real editable shapes (never flattened images/video).",
+  "author": {
+    "name": "Shaik-Hamzah123"
+  },
+  "homepage": "https://github.com/Shaik-Hamzah123/compono",
+  "repository": "https://github.com/Shaik-Hamzah123/compono",
+  "license": "MIT",
+  "keywords": ["pptx", "powerpoint", "presentations", "slides", "mcp"]
+}
