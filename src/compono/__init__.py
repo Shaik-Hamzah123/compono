@@ -11,16 +11,33 @@ from compono.render import (
     render_deck,
     validate,
 )
-from compono.schema import Deck, Grid, Header, Shape, Slide, Text
+from compono.schema import (
+    Chart,
+    Deck,
+    Grid,
+    Header,
+    Image,
+    Sequence,
+    Shape,
+    Slide,
+    Stat,
+    Table,
+    Text,
+)
 
 __all__ = [
+    "Chart",
     "Deck",
     "DeckValidationError",
     "Grid",
     "Header",
+    "Image",
     "RenderReport",
+    "Sequence",
     "Shape",
     "Slide",
+    "Stat",
+    "Table",
     "Text",
     "ValidationReport",
     "render_deck",

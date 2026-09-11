@@ -4,18 +4,23 @@ Exposes the two public verbs (COMPONO_PLAN.md sections 8-9): render_deck(spec)
 and validate(spec). No client objects, no session lifecycle — both are pure
 functions over a Deck spec (raw dict or a typed Deck).
 
-v1 slice: header, text, grid, shape (Step 4). Image/stat/table/sequence/chart
-render support lands in Step 5 without changing this module's shape.
+Full v1 primitive catalog: header, text, image, stat, grid, table, sequence,
+chart, shape (COMPONO_PLAN.md section 5).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
+from PIL import Image as PILImage
 from pptx import Presentation
+from pptx.chart.data import CategoryChartData
 from pptx.dml.color import RGBColor
+from pptx.enum.chart import XL_CHART_TYPE
+from pptx.enum.dml import MSO_LINE_DASH_STYLE
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Pt
@@ -29,7 +34,19 @@ from compono.resolver import (
     Template,
     resolve_slide,
 )
-from compono.schema import Deck, Header, PrimitiveBase, Shape, Slide, Text
+from compono.schema import (
+    Chart,
+    Deck,
+    Header,
+    Image,
+    PrimitiveBase,
+    Sequence,
+    Shape,
+    Slide,
+    Stat,
+    Table,
+    Text,
+)
 from compono.validator import (
     SAFE_FONTS,
     FontMetrics,
@@ -41,6 +58,10 @@ from compono.validator import (
 
 HEADER_FONT_SIZE_PT = 28
 BODY_FONT_SIZE_PT = 18
+STAT_VALUE_FONT_SIZE_PT = 36
+STAT_LABEL_FONT_SIZE_PT = 14
+TABLE_FONT_SIZE_PT = 14
+CAPTION_FONT_SIZE_PT = 12
 
 # Fallback system fonts used only until a real font ships in src/compono/fonts/
 # (SAFE_FONTS in validator.py is still empty). Overflow validation is skipped,
@@ -55,8 +76,21 @@ _SHAPE_KIND_TO_MSO = {
     "rounded_rect": MSO_SHAPE.ROUNDED_RECTANGLE,
     "oval": MSO_SHAPE.OVAL,
 }
-_ALIGN_TO_PP = {"left": PP_ALIGN.LEFT, "center": PP_ALIGN.CENTER, "right": PP_ALIGN.RIGHT}
-_VALIGN_TO_MSO = {"top": MSO_ANCHOR.TOP, "middle": MSO_ANCHOR.MIDDLE, "bottom": MSO_ANCHOR.BOTTOM}
+_ALIGN_TO_PP = {
+    "left": PP_ALIGN.LEFT,
+    "center": PP_ALIGN.CENTER,
+    "right": PP_ALIGN.RIGHT,
+}
+_VALIGN_TO_MSO = {
+    "top": MSO_ANCHOR.TOP,
+    "middle": MSO_ANCHOR.MIDDLE,
+    "bottom": MSO_ANCHOR.BOTTOM,
+}
+_CHART_TYPE_TO_XL = {
+    "bar": XL_CHART_TYPE.COLUMN_CLUSTERED,
+    "line": XL_CHART_TYPE.LINE,
+    "pie": XL_CHART_TYPE.PIE,
+}
 
 
 class DeckValidationError(Exception):
@@ -110,18 +144,53 @@ def _parse_deck(spec: dict[str, Any] | Deck) -> Deck:
     try:
         return Deck.model_validate(spec)
     except ValidationError as exc:
-        raise DeckValidationError([_pydantic_error_to_dict(e) for e in exc.errors()]) from exc
+        raise DeckValidationError(
+            [_pydantic_error_to_dict(e) for e in exc.errors()]
+        ) from exc
 
 
-def _extract_text_and_font_size(primitive: PrimitiveBase | None) -> tuple[str, float] | None:
+def _extract_text_fields(
+    primitive: PrimitiveBase | None,
+) -> list[tuple[str, str, float]]:
+    """(field_name, text, font_size_pt) for every text-bearing field on a primitive.
+
+    Every entry is checked through the same shared check_overflow/wrap_lines
+    routine (validator.py) — primitives never grow their own wrap logic
+    (COMPONO_PLAN.md section 5, "Text-in-shape").
+    """
     if isinstance(primitive, Header):
-        return primitive.title, HEADER_FONT_SIZE_PT
+        return [("title", primitive.title, HEADER_FONT_SIZE_PT)]
     if isinstance(primitive, Text):
-        content = primitive.content if isinstance(primitive.content, str) else " ".join(primitive.content)
-        return content, BODY_FONT_SIZE_PT
+        content = (
+            primitive.content
+            if isinstance(primitive.content, str)
+            else " ".join(primitive.content)
+        )
+        return [("content", content, BODY_FONT_SIZE_PT)]
     if isinstance(primitive, Shape) and primitive.text is not None:
-        return primitive.text.content, BODY_FONT_SIZE_PT
-    return None
+        return [("text.content", primitive.text.content, BODY_FONT_SIZE_PT)]
+    if isinstance(primitive, Stat):
+        return [
+            ("value", primitive.value, STAT_VALUE_FONT_SIZE_PT),
+            ("label", primitive.label, STAT_LABEL_FONT_SIZE_PT),
+        ]
+    if isinstance(primitive, Table):
+        # A rough combined-text check for v1 — not per-cell overflow yet.
+        combined = (
+            " ".join(primitive.headers)
+            + " "
+            + " ".join(" ".join(row) for row in primitive.rows)
+        )
+        return [("rows", combined, TABLE_FONT_SIZE_PT)]
+    if isinstance(primitive, Sequence):
+        combined = " ".join(
+            f"{step.label}: {step.description}" if step.description else step.label
+            for step in primitive.steps
+        )
+        return [("steps", combined, BODY_FONT_SIZE_PT)]
+    if isinstance(primitive, Image) and primitive.caption:
+        return [("caption", primitive.caption, CAPTION_FONT_SIZE_PT)]
+    return []
 
 
 def _check_slide(
@@ -149,24 +218,33 @@ def _check_slide(
         return None, errors, warnings
 
     if font_metrics is None:
-        warnings.append(f"slide {slide_index}: no font available — overflow validation skipped.")
+        warnings.append(
+            f"slide {slide_index}: no font available — overflow validation skipped."
+        )
         return layout, errors, warnings
 
     for item_id, rect in layout.rects.items():
-        text_and_size = _extract_text_and_font_size(layout.items.get(item_id))
-        if text_and_size is None:
-            continue
-        text, font_size_pt = text_and_size
         box_width_pt = Emu(rect.w).pt
         box_height_pt = Emu(rect.h).pt
-        report = check_overflow(text, font_metrics, font_size_pt, box_width_pt, box_height_pt)
-        if report.overflow:
-            errors.append(build_overflow_error(slide_index, item_id, "content", report, font_size_pt))
+        for field_name, text, font_size_pt in _extract_text_fields(
+            layout.items.get(item_id)
+        ):
+            report = check_overflow(
+                text, font_metrics, font_size_pt, box_width_pt, box_height_pt
+            )
+            if report.overflow:
+                errors.append(
+                    build_overflow_error(
+                        slide_index, item_id, field_name, report, font_size_pt
+                    )
+                )
 
     return layout, errors, warnings
 
 
-def validate(spec: dict[str, Any] | Deck, *, template: Template | None = None) -> ValidationReport:
+def validate(
+    spec: dict[str, Any] | Deck, *, template: Template | None = None
+) -> ValidationReport:
     """Cheap and separate from render — no pptx write, no image render (COMPONO_PLAN.md section 8, item 4)."""
     resolved_template = template or Template.from_yaml()
 
@@ -185,7 +263,9 @@ def validate(spec: dict[str, Any] | Deck, *, template: Template | None = None) -
         all_errors.extend(errors)
         all_warnings.extend(warnings)
 
-    return ValidationReport(valid=not all_errors, errors=all_errors, warnings=all_warnings)
+    return ValidationReport(
+        valid=not all_errors, errors=all_errors, warnings=all_warnings
+    )
 
 
 def render_deck(
@@ -207,7 +287,9 @@ def render_deck(
     warnings: list[str] = []
 
     for i, slide in enumerate(deck.slides):
-        layout, slide_errors, slide_warnings = _check_slide(i, slide, resolved_template, font_metrics)
+        layout, slide_errors, slide_warnings = _check_slide(
+            i, slide, resolved_template, font_metrics
+        )
         errors.extend(slide_errors)
         warnings.extend(slide_warnings)
         layouts.append(layout)  # type: ignore[arg-type]  # None only paired with an error, checked below
@@ -221,41 +303,70 @@ def render_deck(
     blank_layout = prs.slide_layouts[6]
 
     manifest: list[dict[str, Any]] = []
-    for layout in layouts:
+    for i, layout in enumerate(layouts):
         pptx_slide = prs.slides.add_slide(blank_layout)
-        _render_slide(pptx_slide, layout)
+        _render_slide(pptx_slide, layout, i, manifest)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(output_path))
 
-    return RenderReport(pptx_path=output_path, manifest=manifest, warnings=warnings, actual_layout=layouts)
+    return RenderReport(
+        pptx_path=output_path,
+        manifest=manifest,
+        warnings=warnings,
+        actual_layout=layouts,
+    )
 
 
-def _render_slide(pptx_slide: Any, layout: LayoutResult) -> None:
+def _render_slide(
+    pptx_slide: Any,
+    layout: LayoutResult,
+    slide_index: int,
+    manifest: list[dict[str, Any]],
+) -> None:
     for item_id, rect in layout.rects.items():
         primitive = layout.items.get(item_id)
         if primitive is None:
             continue
         if isinstance(primitive, Shape) and primitive.kind == "connector":
             continue  # drawn below from layout.connectors, not from its own rect
-        _render_primitive(pptx_slide, primitive, rect)
+        _render_primitive(pptx_slide, primitive, rect, slide_index, item_id, manifest)
 
     for points in layout.connectors.values():
         _render_connector(pptx_slide, points)
 
 
-def _render_primitive(pptx_slide: Any, primitive: PrimitiveBase, rect: Rect) -> None:
+def _render_primitive(
+    pptx_slide: Any,
+    primitive: PrimitiveBase,
+    rect: Rect,
+    slide_index: int,
+    item_id: str,
+    manifest: list[dict[str, Any]],
+) -> None:
     if isinstance(primitive, Header):
         _render_header(pptx_slide, primitive, rect)
     elif isinstance(primitive, Text):
         _render_text(pptx_slide, primitive, rect)
     elif isinstance(primitive, Shape):
         _render_shape(pptx_slide, primitive, rect)
+    elif isinstance(primitive, Image):
+        _render_image(pptx_slide, primitive, rect, slide_index, item_id, manifest)
+    elif isinstance(primitive, Stat):
+        _render_stat(pptx_slide, primitive, rect)
+    elif isinstance(primitive, Table):
+        _render_table(pptx_slide, primitive, rect)
+    elif isinstance(primitive, Sequence):
+        _render_sequence(pptx_slide, primitive, rect)
+    elif isinstance(primitive, Chart):
+        _render_chart(pptx_slide, primitive, rect)
     # Grid has no visual of its own — only its (already-flattened) children render.
 
 
 def _render_header(pptx_slide: Any, header: Header, rect: Rect) -> None:
-    box = pptx_slide.shapes.add_textbox(Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h))
+    box = pptx_slide.shapes.add_textbox(
+        Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
+    )
     tf = box.text_frame
     tf.word_wrap = True
 
@@ -281,12 +392,16 @@ def _render_header(pptx_slide: Any, header: Header, rect: Rect) -> None:
 
 
 def _render_text(pptx_slide: Any, text: Text, rect: Rect) -> None:
-    box = pptx_slide.shapes.add_textbox(Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h))
+    box = pptx_slide.shapes.add_textbox(
+        Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
+    )
     tf = box.text_frame
     tf.word_wrap = True
 
     if text.mode == "paragraph":
-        content = text.content if isinstance(text.content, str) else " ".join(text.content)
+        content = (
+            text.content if isinstance(text.content, str) else " ".join(text.content)
+        )
         tf.text = content
         tf.paragraphs[0].font.size = Pt(BODY_FONT_SIZE_PT)
         return
@@ -305,12 +420,18 @@ def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
     # arrowhead styling is a known gap, left for a follow-up once needed.
     if shape.kind in ("line", "arrow"):
         pptx_slide.shapes.add_connector(
-            MSO_CONNECTOR.STRAIGHT, Emu(rect.x), Emu(rect.y), Emu(rect.x + rect.w), Emu(rect.y + rect.h)
+            MSO_CONNECTOR.STRAIGHT,
+            Emu(rect.x),
+            Emu(rect.y),
+            Emu(rect.x + rect.w),
+            Emu(rect.y + rect.h),
         )
         return
 
     mso_shape = _SHAPE_KIND_TO_MSO.get(shape.kind, MSO_SHAPE.RECTANGLE)
-    sp = pptx_slide.shapes.add_shape(mso_shape, Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h))
+    sp = pptx_slide.shapes.add_shape(
+        mso_shape, Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
+    )
 
     if shape.fill:
         sp.fill.solid()
@@ -334,4 +455,195 @@ def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
 def _render_connector(pptx_slide: Any, points: ConnectorPoints) -> None:
     x1, y1 = points.start
     x2, y2 = points.end
-    pptx_slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, Emu(x1), Emu(y1), Emu(x2), Emu(y2))
+    pptx_slide.shapes.add_connector(
+        MSO_CONNECTOR.STRAIGHT, Emu(x1), Emu(y1), Emu(x2), Emu(y2)
+    )
+
+
+def _render_image(
+    pptx_slide: Any,
+    image: Image,
+    rect: Rect,
+    slide_index: int,
+    item_id: str,
+    manifest: list[dict[str, Any]],
+) -> None:
+    if image.placeholder or not image.src:
+        _render_image_placeholder(
+            pptx_slide, image, rect, slide_index, item_id, manifest
+        )
+        return
+
+    if image.fit == "cover":
+        pptx_slide.shapes.add_picture(
+            image.src, Emu(rect.x), Emu(rect.y), width=Emu(rect.w), height=Emu(rect.h)
+        )
+        return
+
+    # contain: preserve aspect ratio, center within rect.
+    with PILImage.open(image.src) as im:
+        img_w, img_h = im.size
+    img_ratio = img_w / img_h
+    box_ratio = rect.w / rect.h
+    if img_ratio > box_ratio:
+        draw_w, draw_h = rect.w, round(rect.w / img_ratio)
+    else:
+        draw_h, draw_w = rect.h, round(rect.h * img_ratio)
+    x = rect.x + (rect.w - draw_w) // 2
+    y = rect.y + (rect.h - draw_h) // 2
+    pptx_slide.shapes.add_picture(
+        image.src, Emu(x), Emu(y), width=Emu(draw_w), height=Emu(draw_h)
+    )
+
+
+def _render_image_placeholder(
+    pptx_slide: Any,
+    image: Image,
+    rect: Rect,
+    slide_index: int,
+    item_id: str,
+    manifest: list[dict[str, Any]],
+) -> None:
+    """A first-class placeholder (COMPONO_PLAN.md section 5): dashed border + caption,
+    plus a manifest entry a later image-fill pass can use without re-laying-out.
+    """
+    sp = pptx_slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
+    )
+    sp.fill.background()
+    sp.line.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    sp.line.dash_style = MSO_LINE_DASH_STYLE.DASH
+
+    if image.caption:
+        tf = sp.text_frame
+        tf.word_wrap = True
+        tf.text = image.caption
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.paragraphs[0].alignment = PP_ALIGN.CENTER
+        tf.paragraphs[0].font.size = Pt(CAPTION_FONT_SIZE_PT)
+
+    manifest.append(
+        {
+            "slide": slide_index,
+            "primitive": item_id,
+            "rect": {"x": rect.x, "y": rect.y, "w": rect.w, "h": rect.h},
+            "caption": image.caption,
+        }
+    )
+
+
+def _render_stat(pptx_slide: Any, stat: Stat, rect: Rect) -> None:
+    box = pptx_slide.shapes.add_textbox(
+        Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
+    )
+    tf = box.text_frame
+    tf.word_wrap = True
+
+    p_value = tf.paragraphs[0]
+    p_value.text = stat.value
+    p_value.font.size = Pt(STAT_VALUE_FONT_SIZE_PT)
+    p_value.font.bold = True
+    p_value.alignment = PP_ALIGN.CENTER
+
+    p_label = tf.add_paragraph()
+    p_label.text = stat.label
+    p_label.font.size = Pt(STAT_LABEL_FONT_SIZE_PT)
+    p_label.alignment = PP_ALIGN.CENTER
+
+    if stat.trend:
+        p_trend = tf.add_paragraph()
+        p_trend.text = stat.trend
+        p_trend.font.size = Pt(STAT_LABEL_FONT_SIZE_PT)
+        p_trend.alignment = PP_ALIGN.CENTER
+
+
+def _render_table(pptx_slide: Any, table: Table, rect: Rect) -> None:
+    n_rows = len(table.rows) + 1
+    n_cols = len(table.headers)
+    graphic_frame = pptx_slide.shapes.add_table(
+        n_rows, n_cols, Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
+    )
+    tbl = graphic_frame.table
+
+    for c, header_text in enumerate(table.headers):
+        cell = tbl.cell(0, c)
+        cell.text = header_text
+        cell.text_frame.paragraphs[0].font.bold = True
+        cell.text_frame.paragraphs[0].font.size = Pt(TABLE_FONT_SIZE_PT)
+
+    for r, row in enumerate(table.rows, start=1):
+        for c, value in enumerate(row):
+            cell = tbl.cell(r, c)
+            cell.text = value
+            cell.text_frame.paragraphs[0].font.size = Pt(TABLE_FONT_SIZE_PT)
+            is_emphasis = (
+                table.emphasis_row is not None and r - 1 == table.emphasis_row
+            ) or (table.emphasis_col is not None and c == table.emphasis_col)
+            cell.text_frame.paragraphs[0].font.bold = is_emphasis
+
+
+def _render_sequence(pptx_slide: Any, sequence: Sequence, rect: Rect) -> None:
+    """Compiles internally to shape + text + connectors (COMPONO_PLAN.md section 5), not a bespoke render path."""
+    steps = sequence.steps
+    n = len(steps)
+    if n == 0:
+        return
+
+    gutter = max(1, min(rect.w, rect.h) // 20)
+
+    if sequence.orientation == "horizontal":
+        step_w = (rect.w - gutter * (n - 1)) // n
+        positions = [
+            Rect(rect.x + i * (step_w + gutter), rect.y, step_w, rect.h)
+            for i in range(n)
+        ]
+    else:
+        step_h = (rect.h - gutter * (n - 1)) // n
+        positions = [
+            Rect(rect.x, rect.y + i * (step_h + gutter), rect.w, step_h)
+            for i in range(n)
+        ]
+
+    centers: list[tuple[int, int]] = []
+    for step, step_rect in zip(steps, positions, strict=True):
+        sp = pptx_slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Emu(step_rect.x),
+            Emu(step_rect.y),
+            Emu(step_rect.w),
+            Emu(step_rect.h),
+        )
+        tf = sp.text_frame
+        tf.word_wrap = True
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.text = step.label
+        tf.paragraphs[0].font.bold = True
+        tf.paragraphs[0].font.size = Pt(BODY_FONT_SIZE_PT)
+        tf.paragraphs[0].alignment = PP_ALIGN.CENTER
+        if step.description:
+            p = tf.add_paragraph()
+            p.text = step.description
+            p.font.size = Pt(CAPTION_FONT_SIZE_PT)
+            p.alignment = PP_ALIGN.CENTER
+        centers.append((step_rect.x + step_rect.w // 2, step_rect.y + step_rect.h // 2))
+
+    for (x1, y1), (x2, y2) in pairwise(centers):
+        pptx_slide.shapes.add_connector(
+            MSO_CONNECTOR.STRAIGHT, Emu(x1), Emu(y1), Emu(x2), Emu(y2)
+        )
+
+
+def _render_chart(pptx_slide: Any, chart: Chart, rect: Rect) -> None:
+    chart_data = CategoryChartData()
+    chart_data.categories = chart.categories
+    for series in chart.series:
+        chart_data.add_series(series.name, series.values)
+
+    pptx_slide.shapes.add_chart(
+        _CHART_TYPE_TO_XL[chart.chart_type],
+        Emu(rect.x),
+        Emu(rect.y),
+        Emu(rect.w),
+        Emu(rect.h),
+        chart_data,
+    )

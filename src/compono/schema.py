@@ -5,16 +5,15 @@ Malformed input is rejected structurally here, not caught visually later
 instructions to the calling agent, not type labels (section 8, item 2) —
 the schema doubles as in-context documentation.
 
-v1 slice: header, text, grid, shape (COMPONO_PLAN.md section 14, step 2).
-The remaining primitives (image, stat, table, sequence, chart) are added
-in a later step without changing the shape of this module.
+Full v1 catalog (COMPONO_PLAN.md section 5): header, text, image, stat, grid,
+table, sequence, chart, shape.
 """
 
 from __future__ import annotations
 
 from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 Align = Literal["start", "center", "end", "stretch"]
 Justify = Literal["start", "center", "end", "space-between"]
@@ -103,7 +102,9 @@ class ShapeText(BaseModel):
 class ShapeConnects(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    from_id: str = Field(..., description="id of the primitive this connector originates from.")
+    from_id: str = Field(
+        ..., description="id of the primitive this connector originates from."
+    )
     to_id: str = Field(..., description="id of the primitive this connector points to.")
 
 
@@ -113,7 +114,8 @@ class Shape(PrimitiveBase):
         ..., description="Shape geometry to render."
     )
     fill: str | None = Field(
-        default=None, description="Fill color, e.g. a hex string. Omit for no fill / template default."
+        default=None,
+        description="Fill color, e.g. a hex string. Omit for no fill / template default.",
     )
     border: str | None = Field(
         default=None, description="Border color, e.g. a hex string. Omit for no border."
@@ -130,8 +132,130 @@ class Shape(PrimitiveBase):
     )
 
 
+class Image(PrimitiveBase):
+    primitive: Literal["image"] = "image"
+    src: str | None = Field(
+        default=None,
+        description="Path or URL to the image. Omit when placeholder=True.",
+    )
+    placeholder: bool = Field(
+        default=False,
+        description=(
+            "If true, renders an intentional placeholder (dashed border + caption) instead of "
+            "a real image, and records the exact rect in the render manifest for a later fill pass."
+        ),
+    )
+    caption: str | None = Field(
+        default=None,
+        description="Caption describing the image (shown on placeholders; also usable as alt text).",
+    )
+    fit: Literal["cover", "contain"] = Field(
+        default="contain",
+        description="'contain' preserves aspect ratio within the box; 'cover' fills the box exactly.",
+    )
+
+    @model_validator(mode="after")
+    def _require_src_or_placeholder(self) -> Image:
+        if not self.placeholder and not self.src:
+            raise ValueError("image requires either 'src' or 'placeholder=True'.")
+        return self
+
+
+class Stat(PrimitiveBase):
+    primitive: Literal["stat"] = "stat"
+    value: str = Field(
+        ...,
+        description="The headline number/value, e.g. '42%'. Keep short — it renders large.",
+    )
+    label: str = Field(
+        ..., description="Short label under the value, e.g. 'YoY growth'."
+    )
+    trend: str | None = Field(
+        default=None,
+        description="Optional trend indicator, e.g. '+12% vs last quarter'.",
+    )
+
+
+class Table(PrimitiveBase):
+    primitive: Literal["table"] = "table"
+    headers: list[str] = Field(..., description="Column headers, in order.")
+    rows: list[list[str]] = Field(
+        ..., description="Row values. Each row must have the same length as headers."
+    )
+    emphasis_row: int | None = Field(
+        default=None,
+        description="0-based index (into rows) of a row to visually emphasize.",
+    )
+    emphasis_col: int | None = Field(
+        default=None,
+        description="0-based index (into headers) of a column to visually emphasize.",
+    )
+
+    @model_validator(mode="after")
+    def _rows_match_header_length(self) -> Table:
+        bad = [i for i, row in enumerate(self.rows) if len(row) != len(self.headers)]
+        if bad:
+            raise ValueError(
+                f"rows {bad} do not have the same length as headers ({len(self.headers)} columns)."
+            )
+        return self
+
+
+class SequenceStep(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(..., description="Short step label, e.g. 'Discovery'.")
+    description: str | None = Field(
+        default=None, description="Optional one-line elaboration of the step."
+    )
+
+
+class Sequence(PrimitiveBase):
+    primitive: Literal["sequence"] = "sequence"
+    steps: list[SequenceStep] = Field(
+        ..., description="Ordered steps, rendered left-to-right or top-to-bottom."
+    )
+    orientation: Literal["horizontal", "vertical"] = Field(
+        default="horizontal", description="Layout direction of the step sequence."
+    )
+
+
+class ChartSeries(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., description="Series name, shown in the chart legend.")
+    values: list[float] = Field(
+        ..., description="One value per category, same length and order as categories."
+    )
+
+
+class Chart(PrimitiveBase):
+    primitive: Literal["chart"] = "chart"
+    chart_type: Literal["bar", "line", "pie"] = Field(
+        ..., description="Chart type to render."
+    )
+    categories: list[str] = Field(
+        ..., description="Category labels along the axis (or pie slice labels)."
+    )
+    series: list[ChartSeries] = Field(
+        ...,
+        description="One or more data series. A pie chart should have exactly one series.",
+    )
+
+    @model_validator(mode="after")
+    def _series_match_category_length(self) -> Chart:
+        bad = [s.name for s in self.series if len(s.values) != len(self.categories)]
+        if bad:
+            raise ValueError(
+                f"series {bad} do not have one value per category ({len(self.categories)} categories)."
+            )
+        if self.chart_type == "pie" and len(self.series) != 1:
+            raise ValueError("a pie chart must have exactly one series.")
+        return self
+
+
 PrimitiveSpec = Annotated[
-    Union[Header, Text, "Grid", Shape],
+    Union[Header, Text, Image, Stat, "Grid", Table, Sequence, Chart, Shape],
     Field(discriminator="primitive"),
 ]
 
@@ -156,7 +280,8 @@ class Grid(PrimitiveBase):
         default="stretch", description="Cross-axis alignment of items within the grid."
     )
     justify: Justify = Field(
-        default="start", description="Main-axis alignment/distribution of items within the grid."
+        default="start",
+        description="Main-axis alignment/distribution of items within the grid.",
     )
 
 
@@ -168,12 +293,16 @@ class Slide(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    header: Header | None = Field(default=None, description="Optional header region for this slide.")
+    header: Header | None = Field(
+        default=None, description="Optional header region for this slide."
+    )
     body: list[PrimitiveSpec] = Field(
         default_factory=list,
         description="Body primitives, laid out top-to-bottom by default.",
     )
-    notes: str | None = Field(default=None, description="Speaker notes for the whole slide.")
+    notes: str | None = Field(
+        default=None, description="Speaker notes for the whole slide."
+    )
 
 
 class Deck(BaseModel):

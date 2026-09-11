@@ -1,0 +1,32 @@
+{
+  "slides": [
+    {
+      "header": { "title": "Full Primitive Catalog" },
+      "body": [
+        { "primitive": "stat", "value": "42%", "label": "YoY growth", "trend": "+12% vs last quarter" },
+        {
+          "primitive": "table",
+          "headers": ["Quarter", "Revenue"],
+          "rows": [["Q1", "10"], ["Q2", "14"]],
+          "emphasis_row": 1
+        },
+        {
+          "primitive": "sequence",
+          "orientation": "horizontal",
+          "steps": [
+            { "label": "Discover", "description": "Understand the problem" },
+            { "label": "Design", "description": "Sketch options" },
+            { "label": "Ship", "description": "Release to users" }
+          ]
+        },
+        {
+          "primitive": "chart",
+          "chart_type": "bar",
+          "categories": ["Q1", "Q2"],
+          "series": [{ "name": "Revenue", "values": [10, 14] }]
+        },
+        { "primitive": "image", "placeholder": true, "caption": "Team photo goes here" }
+      ]
+    }
+  ]
+}

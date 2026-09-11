@@ -1,9 +1,19 @@
-"""Unit tests for src/compono/schema.py — header, text, grid, shape primitives."""
+"""Unit tests for src/compono/schema.py — the full v1 primitive catalog."""
 
 import pytest
 from pydantic import ValidationError
 
-from compono.schema import Grid, Header, Shape, Text
+from compono.schema import (
+    Chart,
+    Grid,
+    Header,
+    Image,
+    Sequence,
+    Shape,
+    Stat,
+    Table,
+    Text,
+)
 
 
 def test_header_minimal() -> None:
@@ -93,3 +103,93 @@ def test_grid_rejects_unknown_primitive_type() -> None:
 def test_json_schema_generation() -> None:
     schema = Header.model_json_schema()
     assert schema["properties"]["title"]["description"].startswith("Keep under")
+
+
+def test_image_placeholder() -> None:
+    img = Image(placeholder=True, caption="Team photo goes here")
+    assert img.src is None
+    assert img.fit == "contain"
+
+
+def test_image_requires_src_or_placeholder() -> None:
+    with pytest.raises(ValidationError):
+        Image()  # type: ignore[call-arg]
+
+
+def test_image_with_src_does_not_need_placeholder() -> None:
+    img = Image(src="photo.png")
+    assert img.placeholder is False
+
+
+def test_stat_minimal() -> None:
+    s = Stat(value="42%", label="YoY growth")
+    assert s.trend is None
+
+
+def test_table_minimal() -> None:
+    t = Table(headers=["Name", "Score"], rows=[["Alice", "90"], ["Bob", "85"]])
+    assert len(t.rows) == 2
+
+
+def test_table_rejects_mismatched_row_length() -> None:
+    with pytest.raises(ValidationError):
+        Table(headers=["Name", "Score"], rows=[["Alice"]])
+
+
+def test_sequence_minimal() -> None:
+    seq = Sequence(
+        steps=[
+            {"label": "Discover"},
+            {"label": "Design", "description": "Sketch options"},
+        ]
+    )
+    assert seq.orientation == "horizontal"
+    assert seq.steps[1].description == "Sketch options"
+
+
+def test_chart_minimal() -> None:
+    c = Chart(
+        chart_type="bar",
+        categories=["Q1", "Q2"],
+        series=[{"name": "Revenue", "values": [10, 20]}],
+    )
+    assert c.series[0].values == [10, 20]
+
+
+def test_chart_rejects_mismatched_series_length() -> None:
+    with pytest.raises(ValidationError):
+        Chart(
+            chart_type="bar",
+            categories=["Q1", "Q2"],
+            series=[{"name": "Revenue", "values": [10]}],
+        )
+
+
+def test_chart_pie_requires_single_series() -> None:
+    with pytest.raises(ValidationError):
+        Chart(
+            chart_type="pie",
+            categories=["A", "B"],
+            series=[
+                {"name": "S1", "values": [1, 2]},
+                {"name": "S2", "values": [3, 4]},
+            ],
+        )
+
+
+def test_grid_accepts_all_new_primitive_types() -> None:
+    g = Grid(
+        items=[
+            {"primitive": "image", "placeholder": True},
+            {"primitive": "stat", "value": "1", "label": "x"},
+            {"primitive": "table", "headers": ["a"], "rows": [["1"]]},
+            {"primitive": "sequence", "steps": [{"label": "step"}]},
+            {
+                "primitive": "chart",
+                "chart_type": "line",
+                "categories": ["a"],
+                "series": [{"name": "s", "values": [1]}],
+            },
+        ]
+    )
+    assert len(g.items) == 5
