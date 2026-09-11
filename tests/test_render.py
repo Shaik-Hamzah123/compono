@@ -1,0 +1,101 @@
+"""Unit/integration tests for src/compono/render.py and cli.py.
+
+Covers the two public verbs (render_deck/validate) end-to-end for the v1
+primitive slice (header, text, grid, shape), plus a CLI smoke test against
+examples/minimal.json.
+"""
+
+import json
+from pathlib import Path
+
+import pytest
+from pptx import Presentation
+
+from compono.cli import main as cli_main
+from compono.render import DeckValidationError, render_deck, validate
+from compono.resolver import Template
+
+EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
+MINIMAL_SPEC = json.loads((EXAMPLES_DIR / "minimal.json").read_text(encoding="utf-8"))
+
+
+def test_validate_accepts_minimal_spec() -> None:
+    report = validate(MINIMAL_SPEC)
+    assert report.valid is True
+    assert report.errors == []
+
+
+def test_validate_rejects_malformed_spec() -> None:
+    report = validate({"slides": [{"body": [{"primitive": "header"}]}]})  # missing required title
+    assert report.valid is False
+    assert report.errors[0]["error"] is not None
+
+
+def test_validate_flags_unknown_connector_id() -> None:
+    spec = {
+        "slides": [
+            {
+                "body": [
+                    {"primitive": "shape", "kind": "connector", "connects": {"from_id": "x", "to_id": "y"}},
+                ]
+            }
+        ]
+    }
+    report = validate(spec)
+    assert report.valid is False
+    assert any(e["error"] == "layout" for e in report.errors)
+
+
+def test_render_deck_writes_a_real_pptx(tmp_path: Path) -> None:
+    output = tmp_path / "deck.pptx"
+    report = render_deck(MINIMAL_SPEC, output)
+
+    assert report.pptx_path == output
+    assert output.exists()
+    assert len(report.actual_layout) == 1
+
+    prs = Presentation(str(output))
+    slides = list(prs.slides)
+    assert len(slides) == 1
+
+    slide = slides[0]
+    # Non-negotiable invariant: every primitive is a real, editable shape —
+    # never a picture or embedded video (COMPONO_PLAN.md section 3).
+    shape_types = {shape.shape_type for shape in slide.shapes}
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+    assert MSO_SHAPE_TYPE.PICTURE not in shape_types
+    # header textbox + bullets textbox + 2 shapes + 1 connector = 5 shapes
+    assert len(slide.shapes) == 5
+
+
+def test_render_deck_raises_on_invalid_spec(tmp_path: Path) -> None:
+    with pytest.raises(DeckValidationError):
+        render_deck({"slides": [{"body": [{"primitive": "header"}]}]}, tmp_path / "out.pptx")
+
+
+def test_render_deck_respects_explicit_template(tmp_path: Path) -> None:
+    template = Template.from_yaml()
+    output = tmp_path / "deck.pptx"
+    render_deck(MINIMAL_SPEC, output, template=template)
+    prs = Presentation(str(output))
+    assert prs.slide_width == template.page_width
+    assert prs.slide_height == template.page_height
+
+
+def test_cli_validate_smoke(capsys: pytest.CaptureFixture[str]) -> None:
+    exit_code = cli_main(["validate", str(EXAMPLES_DIR / "minimal.json")])
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert exit_code == 0
+    assert result["valid"] is True
+
+
+def test_cli_render_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    output = tmp_path / "cli_deck.pptx"
+    exit_code = cli_main(["render", str(EXAMPLES_DIR / "minimal.json"), "-o", str(output)])
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert exit_code == 0
+    assert result["pptx_path"] == str(output)
+    assert output.exists()

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import yaml
 
-from compono.schema import Grid, Header, PrimitiveSpec, Shape
+from compono.schema import Grid, Header, PrimitiveBase, PrimitiveSpec, Shape
 
 EMU_PER_INCH = 914400
 
@@ -80,6 +80,9 @@ class LayoutResult:
     page_height: int
     rects: dict[str, Rect] = field(default_factory=dict)
     connectors: dict[str, ConnectorPoints] = field(default_factory=dict)
+    # The primitive that produced each rect, keyed by the same id — a single
+    # source of truth so render.py never has to re-derive the id scheme above.
+    items: dict[str, PrimitiveBase] = field(default_factory=dict)
 
 
 def resolve_slide(
@@ -98,6 +101,7 @@ def resolve_slide(
     if header is not None:
         header_id = header.id or "header"
         result.rects[header_id] = Rect(content_x, cursor_y, content_w, template.header_height)
+        result.items[header_id] = header
         cursor_y += template.header_height
 
     footer_top = template.page_height - template.margin_bottom - template.footer_height
@@ -143,6 +147,7 @@ def _place_item(
     item_id: str,
 ) -> None:
     result.rects[item_id] = rect
+    result.items[item_id] = item
     if isinstance(item, Grid):
         _layout_grid(item, rect, template, result, item_id)
 

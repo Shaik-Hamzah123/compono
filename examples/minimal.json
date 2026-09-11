@@ -1,0 +1,36 @@
+{
+  "slides": [
+    {
+      "header": {
+        "title": "Welcome to compono",
+        "subtitle": "Agent-oriented, code-based PPTX generation",
+        "eyebrow": "Demo"
+      },
+      "body": [
+        {
+          "primitive": "text",
+          "mode": "bullets",
+          "content": [
+            "The agent never writes raw x/y/w/h coordinates",
+            "A constraint-based resolver computes real EMU positions",
+            "Every primitive renders as a genuine, editable OOXML shape"
+          ],
+          "emphasis_indices": [2]
+        },
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "items": [
+            { "primitive": "shape", "id": "box-a", "kind": "rounded_rect", "fill": "#4F46E5", "text": { "content": "Box A" } },
+            { "primitive": "shape", "id": "box-b", "kind": "rounded_rect", "fill": "#059669", "text": { "content": "Box B" } }
+          ]
+        },
+        {
+          "primitive": "shape",
+          "kind": "connector",
+          "connects": { "from_id": "box-a", "to_id": "box-b" }
+        }
+      ]
+    }
+  ]
+}

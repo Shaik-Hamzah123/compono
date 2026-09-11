@@ -161,3 +161,28 @@ class Grid(PrimitiveBase):
 
 
 Grid.model_rebuild()
+
+
+class Slide(BaseModel):
+    """One slide: an optional header region, and body primitives stacked top-to-bottom by default."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    header: Header | None = Field(default=None, description="Optional header region for this slide.")
+    body: list[PrimitiveSpec] = Field(
+        default_factory=list,
+        description="Body primitives, laid out top-to-bottom by default.",
+    )
+    notes: str | None = Field(default=None, description="Speaker notes for the whole slide.")
+
+
+class Deck(BaseModel):
+    """Top-level spec passed to render_deck/validate (COMPONO_PLAN.md section 9)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    template: str = Field(
+        default="default",
+        description="Template name — a config file under templates/, or 'default'.",
+    )
+    slides: list[Slide] = Field(..., description="Slides, in presentation order.")

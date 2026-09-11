@@ -104,6 +104,15 @@ def test_nested_grid_ids_are_prefixed(template: Template) -> None:
     assert "body[0].items[0].items[0]" in result.rects
 
 
+def test_layout_result_items_pair_id_with_originating_primitive(template: Template) -> None:
+    header = Header(title="Q3 Results")
+    body_text = Text(content="Body copy")
+    result = resolve_slide(template, header=header, body=[body_text])
+
+    assert result.items["header"] is header
+    assert result.items["body[0]"] is body_text
+
+
 def test_explicit_id_overrides_generated_id(template: Template) -> None:
     body = [Text(id="my-text", content="Hello")]
     result = resolve_slide(template, body=body)
