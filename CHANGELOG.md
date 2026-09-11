@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-12
+
+### Changed
+- `requires-python` lowered from `>=3.13` to `>=3.11` — the `>=3.13` floor
+  wasn't backed by any actual 3.13-only language feature in the codebase.
+  Verified by actually installing and running the full test suite against
+  real 3.11 and 3.12 interpreters (not just relaxing the metadata) — 102/102
+  pass on both, no compatibility issues found.
+
 ## [0.1.5] - 2026-09-12
 
 ### Added

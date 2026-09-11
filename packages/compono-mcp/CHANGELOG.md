@@ -18,8 +18,11 @@ Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
   empty. Complements `validate_deck`, doesn't replace it.
 
 ### Changed
-- `compono` dependency bumped to `>=0.1.4` (needs `review`/`reference`,
-  new in that release).
+- `compono` dependency bumped to `>=0.1.6` (needs `review`/`reference`,
+  new in 0.1.4).
+- `requires-python` lowered from `>=3.13` to `>=3.11` — matches
+  `fastmcp`'s own floor (`>=3.10`) and compono core's (verified against
+  real 3.11/3.12 interpreters, not just relaxed metadata).
 
 ## [0.1.0] - 2026-09-12
 

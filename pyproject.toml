@@ -1,13 +1,13 @@
 [project]
 name = "compono"
-version = "0.1.5"
+version = "0.1.6"
 description = "Agent-oriented, code-based PPTX generation library — typed primitives, no raw coordinates."
 readme = "README.md"
 license = "MIT"
 authors = [
     { name = "Shaik-Hamzah123", email = "hamzah.shaik2003@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "fonttools>=4.65.0",
     "pydantic>=2.13.5",

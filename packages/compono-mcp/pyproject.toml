@@ -7,9 +7,9 @@ license = "MIT"
 authors = [
     { name = "Shaik-Hamzah123", email = "hamzah.shaik2003@gmail.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
-    "compono>=0.1.4",
+    "compono>=0.1.6",
     "fastmcp>=4.0.3",
 ]
 
