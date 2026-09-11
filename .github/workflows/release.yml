@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     permissions:
+      contents: read  # listing any permission here zeroes the rest by default —
+                       # actions/checkout needs this explicitly or it can't see
+                       # the (private) repo at all.
       id-token: write  # required for PyPI trusted publishing (OIDC)
     steps:
       - uses: actions/checkout@v4
