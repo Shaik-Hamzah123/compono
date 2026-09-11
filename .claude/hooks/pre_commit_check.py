@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """PreToolUse hook (Bash): block `git commit` unless ruff, mypy, and pytest
 all pass.
 

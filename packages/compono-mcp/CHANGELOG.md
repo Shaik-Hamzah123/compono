@@ -9,8 +9,6 @@ Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-09-12
-
 ### Added
 - MCP server (stdio transport, via `fastmcp`) exposing `compono`'s two verbs
   as tools: `validate_deck` and `render_deck_tool`. Both are thin proxies —

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """PostToolUse hook (Edit|Write): auto-format a just-touched Python file.
 
 Wired via .claude/settings.json. No-ops for anything that isn't a .py file
