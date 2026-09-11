@@ -1,0 +1,53 @@
+{
+  "slides": [
+    {
+      "header": { "title": "System Architecture" },
+      "body": [
+        {
+          "id": "client",
+          "primitive": "shape",
+          "kind": "rounded_rect",
+          "fill": "#0EA5E9",
+          "text": { "content": "Client", "align": "center", "valign": "middle" }
+        },
+        {
+          "id": "gateway",
+          "primitive": "shape",
+          "kind": "rounded_rect",
+          "fill": "#6366F1",
+          "text": { "content": "API Gateway", "align": "center", "valign": "middle" }
+        },
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "items": [
+            { "id": "service-a", "primitive": "shape", "kind": "rounded_rect", "fill": "#8B5CF6",
+              "text": { "content": "Service A", "align": "center", "valign": "middle" } },
+            { "id": "service-b", "primitive": "shape", "kind": "rounded_rect", "fill": "#8B5CF6",
+              "text": { "content": "Service B", "align": "center", "valign": "middle" } }
+          ]
+        },
+        {
+          "id": "queue",
+          "primitive": "shape",
+          "kind": "oval",
+          "fill": "#F59E0B",
+          "text": { "content": "Queue", "align": "center", "valign": "middle" }
+        },
+        {
+          "id": "db",
+          "primitive": "shape",
+          "kind": "rounded_rect",
+          "fill": "#059669",
+          "text": { "content": "Database", "align": "center", "valign": "middle" }
+        },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "client", "to_id": "gateway" } },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "gateway", "to_id": "service-a" } },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "gateway", "to_id": "service-b" } },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "service-a", "to_id": "queue" } },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "service-b", "to_id": "queue" } },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "queue", "to_id": "db" } }
+      ]
+    }
+  ]
+}

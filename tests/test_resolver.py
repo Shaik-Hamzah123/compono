@@ -182,6 +182,31 @@ def test_connector_between_side_by_side_shapes_joins_vertical_edges(
     assert connector.end == (right.x, right.y + right.h // 2)
 
 
+def test_connector_shapes_do_not_consume_a_body_slot(template: Template) -> None:
+    """A connector draws nothing at its own position — only layout.connectors
+    (computed from the *other* primitives it references) gets rendered. Mixing
+    several connectors in with real body items must not shrink those items'
+    share of the available height, the way an extra real sibling would.
+    """
+    without_connectors = [Shape(id="a", kind="rect"), Shape(id="b", kind="rect")]
+    baseline = resolve_slide(template, body=without_connectors)
+
+    with_connectors = [
+        Shape(id="a", kind="rect"),
+        Shape(id="b", kind="rect"),
+        Shape(kind="connector", connects={"from_id": "a", "to_id": "b"}),
+        Shape(kind="connector", connects={"from_id": "a", "to_id": "b"}),
+        Shape(kind="connector", connects={"from_id": "a", "to_id": "b"}),
+    ]
+    result = resolve_slide(template, body=with_connectors)
+
+    # Adding 3 more connector siblings must not change "a"/"b"'s height at
+    # all — if connectors wrongly counted toward the slot split, 5 siblings
+    # would give each real item 2/5 the height instead of 1/2.
+    assert result.rects["a"].h == baseline.rects["a"].h
+    assert result.rects["b"].h == baseline.rects["b"].h
+
+
 def test_connector_unknown_id_raises(template: Template) -> None:
     body = [
         Shape(

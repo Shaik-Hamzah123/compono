@@ -27,15 +27,21 @@ matching `examples/*.json` spec (`.pptx` → PNG via LibreOffice, see
 
 | Client proposal | Conference talk |
 |---|---|
-| ![KPI grid](assets/screenshots/client_proposal/slide-2.png) | ![Architecture diagram](assets/screenshots/conference_talk/slide-4.png) |
+| ![KPI grid](assets/screenshots/client_proposal/slide-2.png) | ![Planner/Executor architecture](assets/screenshots/conference_talk/slide-4.png) |
 
 | Research talk | Fun explainer |
 |---|---|
 | ![Loss curves](assets/screenshots/research_talk/slide-4.png) | ![Roast levels](assets/screenshots/fun_explainer/slide-3.png) |
 
+`shape` + `connector` compose into real diagrams, not just colored boxes —
+a layered system architecture, built entirely from `examples/architecture_diagram.json`:
+
+![Layered architecture: client → gateway → services → queue → database](assets/screenshots/architecture_diagram/slide-1.png)
+
 See `examples/` for the full specs (`client_proposal.json`,
 `conference_talk.json`, `research_talk.json`, `college_presentation.json`,
-`fun_explainer.json`, plus `minimal.json` and `full_catalog.json`).
+`fun_explainer.json`, `architecture_diagram.json`, plus `minimal.json` and
+`full_catalog.json`).
 
 ## Install
 

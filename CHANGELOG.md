@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Genre-spanning example decks (`client_proposal`, `college_presentation`,
+  `conference_talk`, `research_talk`, `fun_explainer`,
+  `architecture_diagram`), each validated and rendered to real `.pptx` →
+  PNG screenshots embedded in the README.
+
+### Fixed
+- Image placeholder captions were nearly invisible on some renderers (no
+  explicit font color) — now explicitly gray.
+- Shape connectors joined rect *centers*, cutting straight across any text
+  centered in either shape. Now clipped to each rect's actual boundary
+  along the line between centers, for both the `sequence` primitive and
+  the general `shape.kind="connector"` case.
+- Connector shapes were incorrectly counted toward a body/grid's
+  equal-height slot split, even though they render nothing at their own
+  position — could visibly starve real siblings of space when a diagram
+  had several connectors. They're now excluded from slot counting
+  entirely.
+
+### Known limitations (new)
+- Connectors route as straight lines with no obstacle avoidance — if an
+  unrelated sibling sits directly between two connected primitives, the
+  line will cross through it. Lay out diagrams so connected primitives
+  don't have another primitive directly in between (see
+  `examples/architecture_diagram.json` for a layout that avoids this).
+
 ## [0.1.0] - 2026-09-12
 
 First tagged release: the full v1 primitive catalog, working end-to-end

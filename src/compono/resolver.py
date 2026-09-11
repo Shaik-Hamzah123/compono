@@ -133,6 +133,14 @@ def resolve_slide(
     return result
 
 
+def _is_connector_shape(item: PrimitiveSpec) -> bool:
+    """A connector shape draws nothing at its own position — only
+    layout.connectors (computed from the *other* primitives it references)
+    gets rendered. It must never consume a body/grid slot's shared space.
+    """
+    return isinstance(item, Shape) and item.kind == "connector"
+
+
 def _layout_stack(
     items: list[PrimitiveSpec],
     rect: Rect,
@@ -141,13 +149,14 @@ def _layout_stack(
     prefix: str,
 ) -> None:
     """Lay out primitives top-to-bottom, sharing rect height equally (flex-equal fallback)."""
-    n = len(items)
+    real_items = [item for item in items if not _is_connector_shape(item)]
+    n = len(real_items)
     if n == 0:
         return
 
     slot_h = (rect.h - template.gutter * (n - 1)) // n if n > 1 else rect.h
     y = rect.y
-    for i, item in enumerate(items):
+    for i, item in enumerate(real_items):
         item_id = item.id or f"{prefix}[{i}]"
         item_rect = Rect(rect.x, y, rect.w, slot_h)
         _place_item(item, item_rect, template, result, item_id)
@@ -167,12 +176,12 @@ def _place_item(
         _layout_grid(item, rect, template, result, item_id)
 
 
-def _resolve_grid_columns(grid: Grid) -> int:
+def _resolve_grid_columns(grid: Grid, n: int) -> int:
     if grid.columns != "auto":
         return grid.columns
     if grid.direction == "column":
         return 1
-    return max(1, len(grid.items))
+    return max(1, n)
 
 
 def _layout_grid(
@@ -183,17 +192,18 @@ def _layout_grid(
     prefix: str,
 ) -> None:
     """True 2D layout: row/column count, gutter, equal-fr distribution (COMPONO_PLAN.md section 6)."""
-    n = len(grid.items)
+    real_items = [item for item in grid.items if not _is_connector_shape(item)]
+    n = len(real_items)
     if n == 0:
         return
 
-    columns = max(1, min(_resolve_grid_columns(grid), n))
+    columns = max(1, min(_resolve_grid_columns(grid, n), n))
     rows = math.ceil(n / columns)
 
     col_w = (rect.w - template.gutter * (columns - 1)) // columns
     row_h = (rect.h - template.gutter * (rows - 1)) // rows
 
-    for i, item in enumerate(grid.items):
+    for i, item in enumerate(real_items):
         r, c = divmod(i, columns)
         x = rect.x + c * (col_w + template.gutter)
         y = rect.y + r * (row_h + template.gutter)
