@@ -1,0 +1,5 @@
+# Default template: palette, fonts, logo assets, motifs, footer, title/closing layout.
+# Template as data, not code — a new brand/style is a new config file, not new code.
+# See COMPONO_PLAN.md section 3, item 2. Populated in Step 2 alongside the resolver.
+
+name: default
