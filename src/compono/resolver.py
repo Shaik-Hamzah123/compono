@@ -212,6 +212,30 @@ def _iter_shapes(items: list[PrimitiveSpec]) -> list[Shape]:
     return shapes
 
 
+def _rect_boundary_point(rect: Rect, toward: tuple[int, int]) -> tuple[int, int]:
+    """Where a ray from rect's center toward `toward` exits rect's boundary.
+
+    Used so a connector's endpoint sits on the shape's edge, never its
+    center — a center-to-center line would cut straight across any text
+    centered inside the shape.
+    """
+    cx, cy = rect.x + rect.w / 2, rect.y + rect.h / 2
+    dx, dy = toward[0] - cx, toward[1] - cy
+
+    if dx == 0 and dy == 0:
+        return (round(cx), round(cy))
+
+    half_w, half_h = rect.w / 2, rect.h / 2
+    t_candidates = []
+    if dx != 0:
+        t_candidates.append(half_w / abs(dx))
+    if dy != 0:
+        t_candidates.append(half_h / abs(dy))
+    t = min(t_candidates)
+
+    return (round(cx + t * dx), round(cy + t * dy))
+
+
 def _resolve_connectors(body: list[PrimitiveSpec], result: LayoutResult) -> None:
     """Second pass: connectors reference other primitives' already-resolved rects by id."""
     for shape in _iter_shapes(body):
@@ -223,8 +247,10 @@ def _resolve_connectors(body: list[PrimitiveSpec], result: LayoutResult) -> None
                 f"Connector references unknown id(s): {from_id!r}, {to_id!r}"
             )
         from_rect, to_rect = result.rects[from_id], result.rects[to_id]
+        from_center = (from_rect.x + from_rect.w // 2, from_rect.y + from_rect.h // 2)
+        to_center = (to_rect.x + to_rect.w // 2, to_rect.y + to_rect.h // 2)
         connector_id = shape.id or f"connector[{from_id}->{to_id}]"
         result.connectors[connector_id] = ConnectorPoints(
-            start=(from_rect.x + from_rect.w // 2, from_rect.y + from_rect.h // 2),
-            end=(to_rect.x + to_rect.w // 2, to_rect.y + to_rect.h // 2),
+            start=_rect_boundary_point(from_rect, to_center),
+            end=_rect_boundary_point(to_rect, from_center),
         )

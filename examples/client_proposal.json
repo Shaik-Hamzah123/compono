@@ -1,0 +1,124 @@
+{
+  "slides": [
+    {
+      "header": {
+        "eyebrow": "Q3 2026 Review",
+        "title": "Atlas Platform",
+        "subtitle": "Quarterly Business Review — Engineering & Product",
+        "align": "center"
+      }
+    },
+    {
+      "header": { "title": "This Quarter at a Glance" },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 3,
+          "items": [
+            { "primitive": "stat", "value": "42%", "label": "YoY revenue growth", "trend": "+12% vs Q2" },
+            { "primitive": "stat", "value": "1.8M", "label": "Monthly active users", "trend": "+340K vs Q2" },
+            { "primitive": "stat", "value": "99.97%", "label": "Platform uptime", "trend": "+0.04pp vs Q2" }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Revenue Trend" },
+      "body": [
+        {
+          "primitive": "chart",
+          "chart_type": "bar",
+          "categories": ["Q1", "Q2", "Q3"],
+          "series": [
+            { "name": "Revenue", "values": [8.2, 10.1, 14.3] },
+            { "name": "Costs", "values": [5.1, 5.6, 6.4] }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Where Engineering Time Went" },
+      "body": [
+        {
+          "primitive": "table",
+          "headers": ["Workstream", "Engineer-weeks", "Status"],
+          "rows": [
+            ["Platform reliability", "18", "Complete"],
+            ["Layout resolver v2", "26", "In progress"],
+            ["MCP server", "9", "Complete"],
+            ["Billing migration", "14", "In progress"]
+          ],
+          "emphasis_row": 1
+        }
+      ]
+    },
+    {
+      "header": { "title": "Our Process" },
+      "body": [
+        {
+          "primitive": "sequence",
+          "orientation": "horizontal",
+          "steps": [
+            { "label": "Discover", "description": "Customer interviews" },
+            { "label": "Design", "description": "Spec + review" },
+            { "label": "Build", "description": "Implement + test" },
+            { "label": "Ship", "description": "Roll out + monitor" }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Before vs. After" },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "items": [
+            {
+              "id": "before-card",
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#DC2626",
+              "text": { "content": "Manual layout: hours per deck, hand-placed coordinates" }
+            },
+            {
+              "id": "after-card",
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#059669",
+              "text": { "content": "compono: minutes per deck, resolver-computed layout" }
+            }
+          ]
+        },
+        {
+          "primitive": "shape",
+          "kind": "connector",
+          "connects": { "from_id": "before-card", "to_id": "after-card" }
+        }
+      ]
+    },
+    {
+      "header": { "title": "Team & Roadmap" },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "items": [
+            { "primitive": "image", "placeholder": true, "caption": "Team photo goes here" },
+            {
+              "primitive": "text",
+              "mode": "bullets",
+              "content": [
+                "Bundle a real OFL-licensed font",
+                "Content-aware layout sizing (no more equal-height fallback)",
+                "compono-mcp HTTP transport",
+                "Peer-to-peer shape alignment"
+              ],
+              "emphasis_indices": [1]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

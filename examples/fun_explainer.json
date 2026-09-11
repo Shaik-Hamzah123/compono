@@ -1,0 +1,81 @@
+{
+  "slides": [
+    {
+      "header": {
+        "eyebrow": "☕ A Quick Explainer",
+        "title": "How Coffee Becomes Your Morning Cup",
+        "subtitle": "From cherry to cup in five steps",
+        "align": "center"
+      }
+    },
+    {
+      "header": { "title": "The Journey" },
+      "body": [
+        {
+          "primitive": "sequence",
+          "orientation": "horizontal",
+          "steps": [
+            { "label": "Harvest", "description": "Ripe cherries picked" },
+            { "label": "Roast", "description": "Beans develop flavor" },
+            { "label": "Grind", "description": "Size matches brew method" },
+            { "label": "Brew", "description": "Hot water meets grounds" },
+            { "label": "Enjoy", "description": "☕" }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Roast Levels" },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 3,
+          "justify": "space-between",
+          "items": [
+            {
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#D2B48C",
+              "text": { "content": "Light Roast — bright, acidic", "align": "center", "valign": "middle" }
+            },
+            {
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#8B5A2B",
+              "text": { "content": "Medium Roast — balanced", "align": "center", "valign": "middle" }
+            },
+            {
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#3B2417",
+              "text": { "content": "Dark Roast — bold, smoky", "align": "center", "valign": "middle" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Global Production" },
+      "body": [
+        {
+          "primitive": "chart",
+          "chart_type": "pie",
+          "categories": ["Brazil", "Vietnam", "Colombia", "Indonesia", "Rest of world"],
+          "series": [{ "name": "Million bags/year", "values": [63, 29, 13, 11, 44] }]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Your Cup" },
+      "body": [
+        { "primitive": "image", "placeholder": true, "caption": "Photo of a coffee cup goes here", "fit": "cover" }
+      ]
+    },
+    {
+      "header": { "title": "Fun Fact" },
+      "body": [
+        { "primitive": "stat", "value": "2.25B", "label": "cups consumed worldwide every day", "trend": "and counting ☕" }
+      ]
+    }
+  ]
+}

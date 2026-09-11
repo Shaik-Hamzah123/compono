@@ -148,8 +148,38 @@ def test_connector_resolves_start_and_end_points(template: Template) -> None:
 
     connector = result.connectors["connector[box-a->box-b]"]
     a, b = result.rects["box-a"], result.rects["box-b"]
-    assert connector.start == (a.x + a.w // 2, a.y + a.h // 2)
-    assert connector.end == (b.x + b.w // 2, b.y + b.h // 2)
+    # box-a sits above box-b (stacked vertically, same width) — the connector
+    # must join their *edges* (a's bottom, b's top), never their centers,
+    # since a center-to-center line would cut across any text inside either.
+    assert connector.start == (a.x + a.w // 2, a.y + a.h)
+    assert connector.end == (b.x + b.w // 2, b.y)
+
+
+def test_connector_between_side_by_side_shapes_joins_vertical_edges(
+    template: Template,
+) -> None:
+    """Reproduces the real bug found via screenshot review: two shapes side by
+    side (via a grid) with a connector must join their facing vertical
+    edges — not their centers, which would cut through each shape's own text.
+    """
+    grid = Grid(
+        columns=2,
+        items=[
+            {"primitive": "shape", "id": "left-box", "kind": "rect"},
+            {"primitive": "shape", "id": "right-box", "kind": "rect"},
+        ],
+    )
+    body = [
+        grid,
+        Shape(kind="connector", connects={"from_id": "left-box", "to_id": "right-box"}),
+    ]
+    result = resolve_slide(template, body=body)
+
+    left, right = result.rects["left-box"], result.rects["right-box"]
+    connector = result.connectors["connector[left-box->right-box]"]
+
+    assert connector.start == (left.x + left.w, left.y + left.h // 2)
+    assert connector.end == (right.x, right.y + right.h // 2)
 
 
 def test_connector_unknown_id_raises(template: Template) -> None:

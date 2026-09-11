@@ -1,0 +1,107 @@
+{
+  "slides": [
+    {
+      "header": {
+        "eyebrow": "NeurIPS 2026 — Poster Session 4",
+        "title": "Scaling Laws for Sparse Transformers",
+        "subtitle": "Jane Doe, Alex Kim — Stanford AI Lab",
+        "align": "center"
+      }
+    },
+    {
+      "header": { "title": "Motivation" },
+      "body": [
+        {
+          "primitive": "text",
+          "mode": "bullets",
+          "content": [
+            "Dense transformers scale predictably, but compute cost grows fast",
+            "Sparse architectures promise similar quality at lower FLOPs",
+            "Open question: do sparse models follow the same scaling laws?"
+          ],
+          "emphasis_indices": [2]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Method" },
+      "body": [
+        {
+          "primitive": "sequence",
+          "orientation": "horizontal",
+          "steps": [
+            { "label": "Data Curation", "description": "500B token corpus" },
+            { "label": "Sparse Architecture", "description": "Mixture-of-experts routing" },
+            { "label": "Pretraining", "description": "Across 5 model scales" },
+            { "label": "Fine-tuning", "description": "Sparse-aware adaptation" }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Loss vs. Parameter Count" },
+      "body": [
+        {
+          "primitive": "chart",
+          "chart_type": "line",
+          "categories": ["1B", "10B", "100B", "1T"],
+          "series": [
+            { "name": "Dense", "values": [3.2, 2.6, 2.1, 1.7] },
+            { "name": "Sparse (ours)", "values": [3.3, 2.5, 1.9, 1.4] }
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Benchmark Comparison" },
+      "body": [
+        {
+          "primitive": "table",
+          "headers": ["Model", "Accuracy", "FLOPs (relative)"],
+          "rows": [
+            ["Dense-1T", "81.2%", "1.00x"],
+            ["Sparse-1T (ours)", "83.6%", "0.34x"],
+            ["Prior sparse work", "79.8%", "0.41x"]
+          ],
+          "emphasis_row": 1
+        }
+      ]
+    },
+    {
+      "header": { "title": "Architecture" },
+      "body": [
+        { "primitive": "image", "placeholder": true, "caption": "Model architecture diagram goes here", "fit": "contain" }
+      ]
+    },
+    {
+      "header": { "title": "Key Result" },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "align": "center",
+          "justify": "center",
+          "items": [
+            { "primitive": "stat", "value": "3.2x", "label": "sample efficiency vs. dense baseline" },
+            {
+              "primitive": "text",
+              "mode": "bullets",
+              "content": [
+                "Matches dense model quality",
+                "At roughly one-third the compute",
+                "Weights and code released open-source"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "header": {
+        "title": "Thank You",
+        "subtitle": "code + weights: github.com/stanford-ai/sparse-scaling — questions welcome",
+        "align": "center"
+      }
+    }
+  ]
+}

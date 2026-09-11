@@ -1,0 +1,98 @@
+{
+  "slides": [
+    {
+      "header": {
+        "eyebrow": "DevConf 2026",
+        "title": "Building Reliable Agent Systems",
+        "subtitle": "Sam Rivera — Staff Engineer, Atlas",
+        "align": "center"
+      }
+    },
+    {
+      "header": { "title": "Agenda" },
+      "body": [
+        {
+          "primitive": "text",
+          "mode": "bullets",
+          "content": [
+            "Why agent demos fail in production",
+            "Our architecture: planner, executor, verifier",
+            "Latency wins from the last two quarters",
+            "A live demo, then Q&A"
+          ]
+        }
+      ]
+    },
+    {
+      "header": { "title": "The Problem" },
+      "body": [
+        { "primitive": "stat", "value": "73%", "label": "of agent demos fail in production", "trend": "internal survey, n=142" }
+      ]
+    },
+    {
+      "header": { "title": "Our Architecture" },
+      "body": [
+        {
+          "primitive": "grid",
+          "columns": 2,
+          "items": [
+            {
+              "id": "planner",
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#2563EB",
+              "text": { "content": "Planner", "align": "center", "valign": "middle" }
+            },
+            {
+              "id": "executor",
+              "primitive": "shape",
+              "kind": "rounded_rect",
+              "fill": "#7C3AED",
+              "text": { "content": "Executor", "align": "center", "valign": "middle" }
+            }
+          ]
+        },
+        { "primitive": "shape", "kind": "connector", "connects": { "from_id": "planner", "to_id": "executor" } }
+      ]
+    },
+    {
+      "header": { "title": "Latency, Release Over Release" },
+      "body": [
+        {
+          "primitive": "chart",
+          "chart_type": "line",
+          "categories": ["v1", "v2", "v3"],
+          "series": [{ "name": "p50 latency (ms)", "values": [820, 410, 190] }]
+        }
+      ]
+    },
+    {
+      "header": { "title": "Live Demo" },
+      "body": [
+        { "primitive": "image", "placeholder": true, "caption": "Live demo recording goes here", "fit": "cover" }
+      ]
+    },
+    {
+      "header": { "title": "Key Takeaways" },
+      "body": [
+        {
+          "primitive": "text",
+          "mode": "bullets",
+          "content": [
+            "Separate planning from execution — verify before acting",
+            "Measure production failure modes, not just demo success",
+            "Small latency wins compound across a long agent trajectory"
+          ],
+          "emphasis_indices": [0]
+        }
+      ]
+    },
+    {
+      "header": {
+        "title": "Thank You",
+        "subtitle": "@samrivera — questions welcome",
+        "align": "center"
+      }
+    }
+  ]
+}
