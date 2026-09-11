@@ -103,6 +103,62 @@ gives you the same structured errors without writing a file.
 }
 ```
 
+### The feedback loop in practice
+
+This is the actual point of `validate()` being cheap and separate from
+`render_deck()` — an agent runs it first, gets back something it can act
+on, and only pays render cost once the spec is clean. No new API for
+this, just the two verbs above used the way they're meant to be:
+
+**1st pass** — a real spec, sharing a slide with two stats, packs in
+three long bullets:
+
+```python
+spec = {
+    "slides": [{
+        "header": {"title": "Q3 Roadmap"},
+        "body": [
+            {"primitive": "text", "mode": "bullets", "content": [
+                "Ship onboarding redesign across web, iOS, and Android, "
+                "with full localization support for every launch market",
+                "Migrate billing to the new usage-based pricing engine, "
+                "including proration, credits, and dunning retries",
+                "Roll out SSO and SCIM provisioning for enterprise "
+                "customers across every supported identity provider",
+            ]},
+            {"primitive": "stat", "value": "42%", "label": "YoY revenue growth"},
+            {"primitive": "stat", "value": "99.97%", "label": "platform uptime"},
+        ],
+    }]
+}
+validate(spec).errors
+```
+
+```json
+[{
+  "slide": 0, "primitive": "body[0]", "field": "content", "error": "overflow",
+  "detail": "Text is ~22pt too tall for the box at font size 18pt (6 lines).",
+  "fix": "Shorten the text, reduce bullet/line count, or split into two slides."
+}]
+```
+
+**2nd pass** — the agent applies the `fix` verbatim (shortens the
+bullets), nothing else about the spec changes:
+
+```python
+spec["slides"][0]["body"][0]["content"] = [
+    "Ship onboarding redesign across web, iOS, and Android",
+    "Migrate billing to usage-based pricing",
+    "Roll out SSO and SCIM for enterprise customers",
+]
+validate(spec).valid  # True
+render_deck(spec, "q3-roadmap.pptx")  # now succeeds
+```
+
+`render_deck` would have raised `DeckValidationError` on the 1st-pass
+spec instead of writing a broken file — the loop above is what an agent
+actually runs, not a hypothetical.
+
 ## Primitive catalog
 
 Every primitive accepts an optional `id` (needed if another primitive

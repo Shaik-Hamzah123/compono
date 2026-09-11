@@ -60,6 +60,18 @@ under `src/`/`tests/`.
   are kept in sync by convention (see the comment at the top of each) — a
   behavior change without a matching doc update is an incomplete change,
   not a follow-up.
+- **A version bump is not done until it's published.** The moment
+  `pyproject.toml`'s version changes, that same piece of work must merge
+  `dev` → `main`, tag `vX.Y.Z`, and push the tag (triggering
+  `release.yml`) before starting anything else — never leave a bumped
+  version un-tagged, and never bump again while a previous bump is still
+  unpublished (this slipped once already: 0.1.1 was bumped and committed
+  but never tagged/released before 0.1.2 followed it). After pushing the
+  tag, confirm the release actually landed — `gh run view <run-id>`
+  shows `completed`/`success` and `https://pypi.org/pypi/compono/<version>/json`
+  (the exact version, not the bare `/compono/json` endpoint, which can
+  serve a stale cached "latest") returns that version — don't assume a
+  green tag push means PyPI has it.
 
 ## Architecture
 
