@@ -17,6 +17,16 @@ This file is both the human-facing README and the in-context reference an
 agent uses to call compono correctly — see `skills/compono/SKILL.md` for the
 packaged version of the same content.
 
+## See it in action
+
+Rendered directly from `examples/full_catalog.json` (`.pptx` → PNG via
+LibreOffice, see `scripts/render_example_screenshots.py`) — nothing here is
+a mockup:
+
+| | |
+|---|---|
+| ![Stat + table](assets/screenshots/full_catalog/slide-1.png) | ![Sequence + chart](assets/screenshots/full_catalog/slide-2.png) |
+
 ## Install
 
 ```bash

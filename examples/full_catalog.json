@@ -1,7 +1,7 @@
 {
   "slides": [
     {
-      "header": { "title": "Full Primitive Catalog" },
+      "header": { "title": "Q2 Results", "subtitle": "Full Primitive Catalog demo" },
       "body": [
         { "primitive": "stat", "value": "42%", "label": "YoY growth", "trend": "+12% vs last quarter" },
         {
@@ -9,7 +9,12 @@
           "headers": ["Quarter", "Revenue"],
           "rows": [["Q1", "10"], ["Q2", "14"]],
           "emphasis_row": 1
-        },
+        }
+      ]
+    },
+    {
+      "header": { "title": "How We Got Here" },
+      "body": [
         {
           "primitive": "sequence",
           "orientation": "horizontal",
@@ -24,7 +29,12 @@
           "chart_type": "bar",
           "categories": ["Q1", "Q2"],
           "series": [{ "name": "Revenue", "values": [10, 14] }]
-        },
+        }
+      ]
+    },
+    {
+      "header": { "title": "The Team" },
+      "body": [
         { "primitive": "image", "placeholder": true, "caption": "Team photo goes here" }
       ]
     }

@@ -131,11 +131,17 @@ def test_table_data_round_trips_into_a_real_table(tmp_path: Path) -> None:
     output = tmp_path / "full_catalog.pptx"
     render_deck(spec, output)
 
-    table_spec = next(p for p in spec["slides"][0]["body"] if p["primitive"] == "table")
+    table_spec = next(
+        p
+        for slide in spec["slides"]
+        for p in slide["body"]
+        if p["primitive"] == "table"
+    )
 
     prs = Presentation(str(output))
-    slide = next(iter(prs.slides))
-    table_shape = next(s for s in slide.shapes if s.has_table)
+    table_shape = next(
+        shape for slide in prs.slides for shape in slide.shapes if shape.has_table
+    )
     table = table_shape.table
 
     header_row = [table.cell(0, c).text for c in range(len(table_spec["headers"]))]
@@ -151,11 +157,17 @@ def test_chart_data_round_trips_into_a_real_chart(tmp_path: Path) -> None:
     output = tmp_path / "full_catalog.pptx"
     render_deck(spec, output)
 
-    chart_spec = next(p for p in spec["slides"][0]["body"] if p["primitive"] == "chart")
+    chart_spec = next(
+        p
+        for slide in spec["slides"]
+        for p in slide["body"]
+        if p["primitive"] == "chart"
+    )
 
     prs = Presentation(str(output))
-    slide = next(iter(prs.slides))
-    chart_shape = next(s for s in slide.shapes if s.has_chart)
+    chart_shape = next(
+        shape for slide in prs.slides for shape in slide.shapes if shape.has_chart
+    )
     chart = chart_shape.chart
 
     assert list(chart.plots[0].categories) == chart_spec["categories"]

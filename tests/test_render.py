@@ -127,8 +127,8 @@ def test_render_deck_writes_all_primitive_types(tmp_path: Path) -> None:
     report = render_deck(FULL_CATALOG_SPEC, output)
 
     prs = Presentation(str(output))
-    slide = next(iter(prs.slides))
-    shape_types = {shape.shape_type for shape in slide.shapes}
+    assert len(list(prs.slides)) == 3
+    shape_types = {shape.shape_type for slide in prs.slides for shape in slide.shapes}
 
     # Non-negotiable invariant: real, editable shapes only — table and chart
     # are real OOXML graphicFrames, never a flattened picture or video.
@@ -142,6 +142,23 @@ def test_render_deck_writes_all_primitive_types(tmp_path: Path) -> None:
     assert "rect" in report.manifest[0]
 
 
+def test_image_placeholder_caption_has_a_visible_font_color(tmp_path: Path) -> None:
+    from pptx.dml.color import RGBColor
+
+    output = tmp_path / "full_catalog.pptx"
+    render_deck(FULL_CATALOG_SPEC, output)
+
+    prs = Presentation(str(output))
+    placeholder = next(
+        shape
+        for slide in prs.slides
+        for shape in slide.shapes
+        if shape.has_text_frame and "Team photo goes here" in shape.text_frame.text
+    )
+    color = placeholder.text_frame.paragraphs[0].font.color.rgb
+    assert color == RGBColor(0x66, 0x66, 0x66)
+
+
 def test_render_deck_sequence_draws_connectors_between_steps(tmp_path: Path) -> None:
     from pptx.enum.shapes import MSO_SHAPE_TYPE
 
@@ -149,7 +166,50 @@ def test_render_deck_sequence_draws_connectors_between_steps(tmp_path: Path) -> 
     render_deck(FULL_CATALOG_SPEC, output)
 
     prs = Presentation(str(output))
-    slide = next(iter(prs.slides))
     # 3 sequence steps -> 2 connectors between them (plus none from other primitives here)
-    connectors = [s for s in slide.shapes if s.shape_type == MSO_SHAPE_TYPE.LINE]
+    connectors = [
+        shape
+        for slide in prs.slides
+        for shape in slide.shapes
+        if shape.shape_type == MSO_SHAPE_TYPE.LINE
+    ]
     assert len(connectors) == 2
+
+
+def test_render_deck_sequence_connectors_run_through_the_gutter_not_the_boxes(
+    tmp_path: Path,
+) -> None:
+    """Connectors must join box edges, never centers — a center-to-center line
+
+    would cross directly over each step's own label text.
+    """
+    output = tmp_path / "full_catalog.pptx"
+    render_deck(FULL_CATALOG_SPEC, output)
+
+    prs = Presentation(str(output))
+    step_boxes = [
+        shape
+        for slide in prs.slides
+        for shape in slide.shapes
+        if shape.has_text_frame
+        and shape.text_frame.text.splitlines()[0] in ("Discover", "Design", "Ship")
+    ]
+    step_boxes.sort(key=lambda s: s.left)
+    assert len(step_boxes) == 3
+
+    connectors = sorted(
+        (
+            shape
+            for slide in prs.slides
+            for shape in slide.shapes
+            if shape.shape_type.name == "LINE"
+        ),
+        key=lambda s: s.left,
+    )
+    assert len(connectors) == 2
+
+    for box, connector in zip(step_boxes, connectors, strict=False):
+        box_right_edge = box.left + box.width
+        assert connector.left == box_right_edge
+        box_vertical_center = box.top + box.height // 2
+        assert connector.top == box_vertical_center

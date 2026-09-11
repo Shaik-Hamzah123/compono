@@ -521,6 +521,10 @@ def _render_image_placeholder(
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE
         tf.paragraphs[0].alignment = PP_ALIGN.CENTER
         tf.paragraphs[0].font.size = Pt(CAPTION_FONT_SIZE_PT)
+        # Auto-shapes with no fill otherwise inherit a near-invisible theme text
+        # color on some renderers (observed as near-white on white) — match the
+        # dashed border's gray explicitly so the caption is always legible.
+        tf.paragraphs[0].font.color.rgb = RGBColor(0x66, 0x66, 0x66)
 
     manifest.append(
         {
@@ -604,7 +608,6 @@ def _render_sequence(pptx_slide: Any, sequence: Sequence, rect: Rect) -> None:
             for i in range(n)
         ]
 
-    centers: list[tuple[int, int]] = []
     for step, step_rect in zip(steps, positions, strict=True):
         sp = pptx_slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
@@ -625,9 +628,16 @@ def _render_sequence(pptx_slide: Any, sequence: Sequence, rect: Rect) -> None:
             p.text = step.description
             p.font.size = Pt(CAPTION_FONT_SIZE_PT)
             p.alignment = PP_ALIGN.CENTER
-        centers.append((step_rect.x + step_rect.w // 2, step_rect.y + step_rect.h // 2))
 
-    for (x1, y1), (x2, y2) in pairwise(centers):
+    # Connect box *edges* through the gutter only — never box centers, which
+    # would draw the connector across the step's own label text.
+    for rect_a, rect_b in pairwise(positions):
+        if sequence.orientation == "horizontal":
+            x1, y1 = rect_a.x + rect_a.w, rect_a.y + rect_a.h // 2
+            x2, y2 = rect_b.x, rect_b.y + rect_b.h // 2
+        else:
+            x1, y1 = rect_a.x + rect_a.w // 2, rect_a.y + rect_a.h
+            x2, y2 = rect_b.x + rect_b.w // 2, rect_b.y
         pptx_slide.shapes.add_connector(
             MSO_CONNECTOR.STRAIGHT, Emu(x1), Emu(y1), Emu(x2), Emu(y2)
         )
