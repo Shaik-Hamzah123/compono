@@ -8,18 +8,20 @@ authors = [
     { name = "Shaik-Hamzah123", email = "hamzah.shaik2003@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.5",
+]
 
 [project.scripts]
 compono = "compono.cli:main"
 
-[dependency-groups]
-dev = [
-    "pytest>=8.0.0",
-    "ruff>=0.6.0",
-    "mypy>=1.11.0",
-]
-
 [build-system]
 requires = ["uv_build>=0.11.17,<0.12.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.7",
+]
