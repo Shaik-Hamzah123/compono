@@ -55,14 +55,17 @@ under `src/`/`tests/`.
   tooling/structure change (e.g. adding a workspace member) is not.
 - **After any change to `compono`'s public behavior/API** (new primitive,
   changed default, new CLI/MCP surface, etc.), update the docs that claim
-  to describe it in the same commit: root `README.md`,
-  `skills/compono/SKILL.md`, `src/compono/reference.md` (packaged inside
-  `compono` itself, served by `reference()`/`compono reference` — for an
-  agent with only shell/code-exec access, no MCP or Claude Code skill), and
-  `packages/compono-mcp/src/compono_mcp/reference.md` (served instead as
-  the `compono://reference` MCP resource) are kept in sync by convention
-  (see the comment at the top of each) — a behavior change without a
-  matching doc update is an incomplete change, not a follow-up.
+  to describe it in the same commit. Three files carry the **full**
+  content and are kept in sync by convention (see the comment at the top
+  of each): `skills/compono/SKILL.md`, `src/compono/reference.md`
+  (packaged inside `compono` itself, served by `reference()`/`compono
+  reference` — for an agent with only shell/code-exec access, no MCP or
+  Claude Code skill), and `packages/compono-mcp/src/compono_mcp/reference.md`
+  (served instead as the `compono://reference` MCP resource). Root
+  `README.md` is now a slim landing page (install/quickstart/links into
+  `docs/*.md`) rather than a fourth full copy — update whichever `docs/*.md`
+  page and/or the README itself actually changed. A behavior change
+  without a matching doc update is an incomplete change, not a follow-up.
 - **A version bump is not done until it's published.** The moment
   `pyproject.toml`'s version changes, that same piece of work must merge
   `dev` → `main`, tag `vX.Y.Z`, and push the tag (triggering
