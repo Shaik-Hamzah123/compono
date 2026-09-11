@@ -1,31 +1,28 @@
+<!--
+  Served verbatim as the `compono://reference` MCP resource (see server.py).
+  Kept in sync with the repo root skills/compono/SKILL.md and README.md —
+  same convention already used between those two files. Update all three
+  together when the API surface changes.
+-->
+
 # compono
 
 **Agent-oriented, code-based PPTX generation — "Manim, but for PowerPoint."**
 
-compono lets an LLM agent (or a human) describe a slide deck as data —
-headers, bullet text, stats, tables, charts, images, process sequences,
-shapes — and get back a real, editable `.pptx` file. The agent never writes
-raw `x`/`y`/`w`/`h` coordinates: a constraint-based layout resolver computes
-every position from a small set of typed primitives.
+compono lets you describe a slide deck as data — headers, bullet text,
+stats, tables, charts, images, process sequences, shapes — and get back a
+real, editable `.pptx` file. You never write raw `x`/`y`/`w`/`h`
+coordinates: a constraint-based layout resolver computes every position
+from a small set of typed primitives.
 
 Every rendered element is a genuine, editable native shape (`p:sp`, `p:pic`,
-`p:graphicFrame`) — never a flattened image or embedded video. Open the
-result in PowerPoint and drag a box around; it's a real object, not a
-picture of one.
+`p:graphicFrame`) — never a flattened image or embedded video. Opening the
+result in PowerPoint and dragging a box around works; it's a real object,
+not a picture of one.
 
-This file is both the human-facing README and the in-context reference an
-agent uses to call compono correctly — see `skills/compono/SKILL.md` for the
-packaged version of the same content.
-
-## Install
-
-```bash
-pip install compono
-# or
-uv add compono
-```
-
-For local development, see `CONTRIBUTING.md`.
+You are receiving this document through the `compono-mcp` MCP server's
+`compono://reference` resource — use its `validate`/`render_deck` tools as
+described below.
 
 ## Quickstart
 
@@ -56,53 +53,41 @@ report = render_deck(spec, "deck.pptx")
 print(report.pptx_path, report.warnings)
 ```
 
-Or from the command line:
-
-```bash
-compono validate spec.json
-compono render spec.json -o deck.pptx
-```
+Through this MCP server, call the `validate` and `render_deck` tools with
+the identical `spec` shape instead of importing Python directly.
 
 ## Core concepts
 
 - **One entry point, two verbs.** `render_deck(spec, output_path)` and
   `validate(spec)` are the only two functions you need. `validate` is cheap
-  — no pptx write, millisecond-scale — so an agent can iterate on a spec
-  before paying render cost.
-- **A spec is plain data.** Either a raw `dict`/JSON (what an agent's
-  tool-calling naturally produces) or the typed builder classes
-  (`Deck`, `Header`, `Text`, ...) — both serialize to the identical shape.
-  There's no divergence between the two paths.
+  — no pptx write, millisecond-scale — so iterate on a spec before paying
+  render cost.
+- **A spec is plain data.** A raw `dict`/JSON (what tool-calling naturally
+  produces) is all you need — pass it straight to `render_deck`/`validate`.
 - **You never write coordinates.** Every primitive claims space in a slide;
   the resolver (a CSS-flexbox-style directional box model) computes real
   EMU positions. `grid` is the one primitive that does true 2D
   row/column math.
 - **Errors are fixes, not diagnoses.** Every validation/render failure is
   `{slide, primitive, field, error, detail, fix}` — see
-  [Error shape](#error-shape) below.
+  [Error shape](#error-shape) below. Act on `fix`, don't just retry blindly.
 - **render_deck returns a report, not just a file** —
-  `{pptx_path, manifest, warnings, actual_layout}` — so an agent can reason
-  about what happened without reopening the file.
+  `{pptx_path, manifest, warnings, actual_layout}` — reason about what
+  happened without reopening the file.
 
-## API reference
+## Tools (via this MCP server)
 
-```python
-from compono import (
-    render_deck, validate,
-    Deck, Slide, Header, Text, Image, Stat, Grid, Table, Sequence, Chart, Shape,
-    DeckValidationError,
-)
-```
+| Tool | Input | Output | Notes |
+|---|---|---|---|
+| `validate` | `spec: object` | `{valid, errors, warnings}` | No file write. Never errors out on malformed input — `valid: false` with structured errors instead. |
+| `render_deck` | `spec: object, output_path: string` | `{pptx_path, manifest, warnings}` on success, or `{valid: false, errors}` on failure | Writes a real `.pptx` at `output_path` on the machine running this server. |
 
-| Symbol | Signature | Notes |
-|---|---|---|
-| `render_deck` | `render_deck(spec, output_path, *, template=None) -> RenderReport` | Validates, resolves layout, writes a real `.pptx`. Raises `DeckValidationError` on any error — nothing is written on failure. |
-| `validate` | `validate(spec, *, template=None) -> ValidationReport` | Schema + layout + text-overflow checks. No file I/O. Never raises — check `.valid`/`.errors`. |
-| `DeckValidationError` | `exc.errors -> list[dict]` | The one exception type. Carries the structured error list below. |
-
-A `Deck` is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
+A `spec` (a `Deck`) is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
 `{header?: Header, body: [primitive, ...], notes?: str}`. `body` (and
 `grid.items`) accept any primitive, keyed by its `"primitive"` field.
+
+**Prefer `validate` before `render_deck` when iterating** — it's cheap and
+gives you the same structured errors without writing a file.
 
 ### Error shape
 
@@ -121,6 +106,10 @@ A `Deck` is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
 
 Every primitive accepts an optional `id` (needed if another primitive
 references it, e.g. a connector) and an optional `notes` (speaker notes).
+There is no separate "title slide" / "content slide" / "thank-you slide"
+taxonomy — a slide is just `{header?, body: [...]}`, and genre/density/tone
+decisions (what kind of slide this is, how much goes on it) are yours to
+make by composing primitives, not a schema type to pick.
 
 | Primitive | Key fields | Purpose |
 |---|---|---|
@@ -134,21 +123,16 @@ references it, e.g. a connector) and an optional `notes` (speaker notes).
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
 | `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
 
-Every schema field's description is written as an instruction (e.g. "Keep
-under ~60 characters — longer titles will be shrunk by the resolver"), not
-a bare type label — call `Header.model_json_schema()` (or any primitive
-class) to get the full JSON Schema with these descriptions inline.
-
 ### Image placeholders
 
 Set `"placeholder": true` (with an optional `caption`) instead of `src` when
 you don't have a real image yet. It renders as an intentional design
-element — dashed border, centered caption — and `render_deck`'s
-`RenderReport.manifest` gets one entry per placeholder:
+element — dashed border, centered caption — and `render_deck`'s response
+gets one manifest entry per placeholder:
 `{slide, primitive, rect: {x, y, w, h}, caption}`. A later pass (image
 search/generation/human upload) can fill each reserved rect directly from
-the manifest EMU rect — no re-layout needed, and the deck-building agent
-itself never needs image-generation capability.
+the manifest EMU rect — no re-layout needed, and you don't need
+image-generation capability just to build the deck.
 
 ## Worked examples
 
@@ -220,53 +204,9 @@ itself never needs image-generation capability.
 }
 ```
 
-See `examples/minimal.json` and `examples/full_catalog.json` for complete,
-runnable specs (also used as test fixtures).
-
 ## Fonts and overflow validation
 
-Overflow checking (`validate`'s layout errors, and the "shrink text on
-overflow" behavior it protects against) reads real glyph advance widths via
-`fonttools` — no rendering required. As of this release, no font is bundled
-into the package yet (`src/compono/fonts/` is a placeholder); validation
-falls back to a system font if one is found (e.g. `arial.ttf` on Windows),
-and is skipped — not faked — with a warning if none is available. A bundled,
-OFL-licensed safe-font list is planned before the first tagged release; this
-section will list it once shipped.
-
-## CLI
-
-```bash
-compono validate spec.json
-compono render spec.json --template fractal -o deck.pptx
-```
-
-Mirrors `validate`/`render_deck` exactly — useful for agent frameworks that
-can only shell out rather than import Python.
-
-## MCP server
-
-[`compono-mcp`](packages/compono-mcp) exposes `validate`/`render_deck` as MCP
-tools, for any MCP-compatible client — not just Claude Code.
-
-```bash
-pip install compono-mcp
-# or
-uv add compono-mcp
-```
-
-Add to your MCP client config (Claude Desktop / Claude Code style):
-
-```json
-{ "mcpServers": { "compono": { "command": "compono-mcp" } } }
-```
-
-Exposes `validate_deck`/`render_deck_tool` tools (identical `spec` shape to
-the Python API) and a `compono://reference` resource carrying the full
-agent-facing reference doc, for clients without Claude Code's skill system.
-
-## Contributing
-
-See `CONTRIBUTING.md` for dev setup, branching, and code style. If you're
-using Claude Code, `.claude/README.md` describes the build-workflow skill,
-review subagent, and commit/format hooks set up for this repo.
+Overflow checking reads real glyph advance widths via `fonttools` — no
+rendering required. As of this release, no font is bundled yet; validation
+falls back to a system font if one is found, and is skipped — not faked —
+with a warning if none is available.

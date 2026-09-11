@@ -1,7 +1,7 @@
 .PHONY: install lint typecheck test check format build clean
 
 install:
-	uv sync
+	uv sync --all-packages
 
 lint:
 	uv run ruff check .
@@ -11,7 +11,7 @@ format:
 	uv run ruff check --fix .
 
 typecheck:
-	uv run mypy src
+	uv run mypy src packages/compono-mcp/src
 
 test:
 	uv run pytest -q

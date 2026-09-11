@@ -1,0 +1,24 @@
+[project]
+name = "compono-mcp"
+version = "0.1.0"
+description = "MCP server exposing compono's render_deck/validate as MCP tools."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Shaik-Hamzah123", email = "hamzah.shaik2003@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "compono",
+    "fastmcp>=4.0.3",
+]
+
+[project.scripts]
+compono-mcp = "compono_mcp.server:main"
+
+[build-system]
+requires = ["uv_build>=0.11.17,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+compono = { workspace = true }
