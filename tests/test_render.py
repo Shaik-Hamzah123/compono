@@ -74,8 +74,8 @@ def test_render_deck_writes_a_real_pptx(tmp_path: Path) -> None:
     from pptx.enum.shapes import MSO_SHAPE_TYPE
 
     assert MSO_SHAPE_TYPE.PICTURE not in shape_types
-    # header textbox + bullets textbox + 2 shapes + 1 connector = 5 shapes
-    assert len(slide.shapes) == 5
+    # header textbox + bullets textbox + 2 shapes + 1 connector + footer = 6 shapes
+    assert len(slide.shapes) == 6
 
 
 def test_render_deck_raises_on_invalid_spec(tmp_path: Path) -> None:

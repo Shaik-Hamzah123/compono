@@ -306,6 +306,7 @@ def render_deck(
     for i, layout in enumerate(layouts):
         pptx_slide = prs.slides.add_slide(blank_layout)
         _render_slide(pptx_slide, layout, i, manifest)
+        _render_footer(pptx_slide, resolved_template, i + 1, len(layouts))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(output_path))
@@ -369,6 +370,7 @@ def _render_header(pptx_slide: Any, header: Header, rect: Rect) -> None:
     )
     tf = box.text_frame
     tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
     first = True
     if header.eyebrow:
@@ -397,6 +399,7 @@ def _render_text(pptx_slide: Any, text: Text, rect: Rect) -> None:
     )
     tf = box.text_frame
     tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
     if text.mode == "paragraph":
         content = (
@@ -413,6 +416,31 @@ def _render_text(pptx_slide: Any, text: Text, rect: Rect) -> None:
         p.text = f"\u2022 {item}"
         p.font.size = Pt(BODY_FONT_SIZE_PT)
         p.font.bold = i in emphasis
+
+
+def _lighten(hex_color: str, factor: float) -> RGBColor:
+    """Blend a hex color toward white by `factor` (0=unchanged, 1=white)."""
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
+    return RGBColor(
+        round(r + (255 - r) * factor),
+        round(g + (255 - g) * factor),
+        round(b + (255 - b) * factor),
+    )
+
+
+def _apply_shape_fill(sp: Any, hex_color: str) -> None:
+    """A deliberate, consistent gradient (light tint -> the given color, top to
+    bottom) for every filled shape — matching the polished look
+    `sequence` step boxes already got by accident from PowerPoint's default
+    theme gradient, rather than leaving that inconsistent with plain flat
+    fills everywhere else.
+    """
+    base = hex_color.lstrip("#")
+    sp.fill.gradient()
+    sp.fill.gradient_angle = 90
+    stops = sp.fill.gradient_stops
+    stops[0].color.rgb = _lighten(base, 0.45)
+    stops[1].color.rgb = RGBColor.from_string(base)
 
 
 def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
@@ -434,8 +462,7 @@ def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
     )
 
     if shape.fill:
-        sp.fill.solid()
-        sp.fill.fore_color.rgb = RGBColor.from_string(shape.fill.lstrip("#"))
+        _apply_shape_fill(sp, shape.fill)
     else:
         sp.fill.background()
 
@@ -450,6 +477,28 @@ def _render_shape(pptx_slide: Any, shape: Shape, rect: Rect) -> None:
         tf.text = shape.text.content
         tf.vertical_anchor = _VALIGN_TO_MSO[shape.text.valign]
         tf.paragraphs[0].alignment = _ALIGN_TO_PP[shape.text.align]
+
+
+def _render_footer(
+    pptx_slide: Any, template: Template, slide_number: int, total_slides: int
+) -> None:
+    """A consistent footer on every slide — a page number, small and out of
+    the way. Reserved footer space existed since Step 2 but nothing was ever
+    drawn into it, leaving every slide looking unfinished at the bottom.
+    """
+    x = template.margin_left
+    y = template.page_height - template.margin_bottom - template.footer_height
+    w = template.page_width - template.margin_left - template.margin_right
+
+    box = pptx_slide.shapes.add_textbox(
+        Emu(x), Emu(y), Emu(w), Emu(template.footer_height)
+    )
+    tf = box.text_frame
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.text = f"{slide_number} / {total_slides}"
+    tf.paragraphs[0].font.size = Pt(10)
+    tf.paragraphs[0].font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    tf.paragraphs[0].alignment = PP_ALIGN.RIGHT
 
 
 def _render_connector(pptx_slide: Any, points: ConnectorPoints) -> None:
@@ -542,6 +591,7 @@ def _render_stat(pptx_slide: Any, stat: Stat, rect: Rect) -> None:
     )
     tf = box.text_frame
     tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
 
     p_value = tf.paragraphs[0]
     p_value.text = stat.value
@@ -568,6 +618,13 @@ def _render_table(pptx_slide: Any, table: Table, rect: Rect) -> None:
         n_rows, n_cols, Emu(rect.x), Emu(rect.y), Emu(rect.w), Emu(rect.h)
     )
     tbl = graphic_frame.table
+
+    # add_table's graphicFrame reports height=rect.h, but individual row
+    # heights default to a content-based minimum, leaving visible dead space
+    # below the table when it has few rows. Stretch rows to fill rect.h.
+    row_h = rect.h // n_rows
+    for row in tbl.rows:
+        row.height = Emu(row_h)
 
     for c, header_text in enumerate(table.headers):
         cell = tbl.cell(0, c)

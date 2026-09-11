@@ -50,7 +50,16 @@ under `src/`/`tests/`.
   short-lived branch cut from `dev`).
 - One commit per logical unit of work, not per file. Don't bump
   `pyproject.toml`'s version except at a real release milestone (record it
-  in `CHANGELOG.md`, Keep a Changelog format).
+  in `CHANGELOG.md`, Keep a Changelog format) — a real bug fix or behavior
+  change to `src/compono/` itself is a milestone (patch bump); a pure
+  tooling/structure change (e.g. adding a workspace member) is not.
+- **After any change to `compono`'s public behavior/API** (new primitive,
+  changed default, new CLI/MCP surface, etc.), update the docs that claim
+  to describe it in the same commit: root `README.md`,
+  `skills/compono/SKILL.md`, and `packages/compono-mcp/src/compono_mcp/reference.md`
+  are kept in sync by convention (see the comment at the top of each) — a
+  behavior change without a matching doc update is an incomplete change,
+  not a follow-up.
 
 ## Architecture
 

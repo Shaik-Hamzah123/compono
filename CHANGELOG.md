@@ -7,13 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-12
+
+A visual-quality pass, prompted by rendering every example deck to a real
+screenshot and judging the result honestly rather than just checking it
+didn't crash.
+
 ### Added
 - Genre-spanning example decks (`client_proposal`, `college_presentation`,
   `conference_talk`, `research_talk`, `fun_explainer`,
   `architecture_diagram`), each validated and rendered to real `.pptx` →
   PNG screenshots embedded in the README.
+- A consistent footer on every rendered slide: a small, gray "N / total"
+  page number. The footer's space was reserved since Step 2 but nothing
+  was ever drawn into it — every slide looked unfinished at the bottom.
+- Filled `shape` primitives now render with a deliberate top-to-bottom
+  gradient (a light tint of the given color down to the color itself)
+  instead of a flat solid fill — consistent with the polished look
+  `sequence` step boxes already had by accident from PowerPoint's default
+  theme gradient, rather than that being inconsistent with plain flat
+  shapes everywhere else.
 
 ### Fixed
+- A slide with only a `header` (a title/section/closing slide) rendered
+  its title pinned to a short strip at the top of an otherwise-blank page.
+  The resolver now gives a header-only slide the full content area, and
+  `render.py` vertically centers it — a real title slide, not a title
+  stranded at the top of empty space.
+- `header`, `text`, and `stat` primitives didn't vertically center their
+  content within a tall assigned box (only `shape.text` and `sequence`
+  steps did) — every single-item slide (a lone stat, a bullet list, a
+  closing slide) rendered top-heavy with dead space below. All now use
+  `MSO_ANCHOR.MIDDLE`.
 - Image placeholder captions were nearly invisible on some renderers (no
   explicit font color) — now explicitly gray.
 - Shape connectors joined rect *centers*, cutting straight across any text
@@ -32,6 +57,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line will cross through it. Lay out diagrams so connected primitives
   don't have another primitive directly in between (see
   `examples/architecture_diagram.json` for a layout that avoids this).
+- `table` rows are explicitly stretched to fill their assigned box height
+  in the written `.pptx` (verified in the file's own XML), but LibreOffice
+  recalculates its own row heights on import/render regardless — screenshots
+  taken via the LibreOffice-based `scripts/render_example_screenshots.py`
+  may show dead space below a short table even though the file itself is
+  correct. Not observed to affect PowerPoint itself.
 
 ## [0.1.0] - 2026-09-12
 

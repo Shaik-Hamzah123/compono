@@ -104,16 +104,20 @@ def resolve_slide(
     content_x = template.margin_left
     content_w = template.page_width - template.margin_left - template.margin_right
     cursor_y = template.margin_top
+    footer_top = template.page_height - template.margin_bottom - template.footer_height
 
     if header is not None:
         header_id = header.id or "header"
-        result.rects[header_id] = Rect(
-            content_x, cursor_y, content_w, template.header_height
-        )
+        # A header-only slide (no body) is a title/section/closing slide —
+        # give it the full content area instead of the fixed header band, so
+        # render.py can vertically center it on the page like a real title
+        # slide, rather than pinning it to a short strip at the top with a
+        # mostly-empty page below.
+        header_height = (footer_top - cursor_y) if not body else template.header_height
+        result.rects[header_id] = Rect(content_x, cursor_y, content_w, header_height)
         result.items[header_id] = header
-        cursor_y += template.header_height
+        cursor_y += header_height
 
-    footer_top = template.page_height - template.margin_bottom - template.footer_height
     body_height = footer_top - cursor_y
     if body_height < 0:
         raise ValueError(
