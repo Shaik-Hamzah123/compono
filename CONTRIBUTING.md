@@ -28,3 +28,10 @@ uv run pytest
 ## Commit messages
 
 Describe the capability added or the bug fixed, not just "wip" or "fix".
+
+## Using Claude Code on this repo
+
+If you're developing with Claude Code, `.claude/` is committed and wires up
+automatically — see `.claude/README.md`. It includes a build-workflow skill,
+a project-specific review subagent, and commit-blocking lint/type/test hooks
+so every contributor gets the same guardrails without extra setup.
