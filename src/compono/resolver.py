@@ -1,5 +1,207 @@
 """Layout resolver: directional box model (CSS-flexbox mental model).
 
 Computes real EMU positions from primitive specs so the agent never writes
-raw x/y/w/h coordinates. See COMPONO_PLAN.md section 6. Populated in Step 2.
+raw x/y/w/h coordinates (COMPONO_PLAN.md section 6).
+
+v1 slice: header, text, grid, shape. Body primitives share the available
+body height equally (a flex-equal fallback) — content-based height
+estimation via font metrics lands in Step 3 and will replace this fallback
+for primitives that don't request an explicit weight.
 """
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
+
+from compono.schema import Grid, Header, PrimitiveSpec, Shape
+
+EMU_PER_INCH = 914400
+
+DEFAULT_TEMPLATE_PATH = Path(__file__).parent / "templates" / "default.yaml"
+
+
+def _in_to_emu(value: float) -> int:
+    return round(value * EMU_PER_INCH)
+
+
+@dataclass(frozen=True)
+class Template:
+    """Resolved layout constants, in EMU, for one template config."""
+
+    page_width: int
+    page_height: int
+    margin_top: int
+    margin_right: int
+    margin_bottom: int
+    margin_left: int
+    header_height: int
+    footer_height: int
+    gutter: int
+
+    @classmethod
+    def from_yaml(cls, path: Path = DEFAULT_TEMPLATE_PATH) -> Template:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        page = data["page"]
+        margin = data["margin_in"]
+        return cls(
+            page_width=_in_to_emu(page["width_in"]),
+            page_height=_in_to_emu(page["height_in"]),
+            margin_top=_in_to_emu(margin["top"]),
+            margin_right=_in_to_emu(margin["right"]),
+            margin_bottom=_in_to_emu(margin["bottom"]),
+            margin_left=_in_to_emu(margin["left"]),
+            header_height=_in_to_emu(data["header"]["height_in"]),
+            footer_height=_in_to_emu(data["footer"]["height_in"]),
+            gutter=_in_to_emu(data["gutter_in"]),
+        )
+
+
+@dataclass(frozen=True)
+class Rect:
+    x: int
+    y: int
+    w: int
+    h: int
+
+
+@dataclass(frozen=True)
+class ConnectorPoints:
+    start: tuple[int, int]
+    end: tuple[int, int]
+
+
+@dataclass
+class LayoutResult:
+    page_width: int
+    page_height: int
+    rects: dict[str, Rect] = field(default_factory=dict)
+    connectors: dict[str, ConnectorPoints] = field(default_factory=dict)
+
+
+def resolve_slide(
+    template: Template,
+    header: Header | None = None,
+    body: list[PrimitiveSpec] | None = None,
+) -> LayoutResult:
+    """Resolve one slide: header region top, footer pinned bottom, body fills the remainder."""
+    body = body or []
+    result = LayoutResult(page_width=template.page_width, page_height=template.page_height)
+
+    content_x = template.margin_left
+    content_w = template.page_width - template.margin_left - template.margin_right
+    cursor_y = template.margin_top
+
+    if header is not None:
+        header_id = header.id or "header"
+        result.rects[header_id] = Rect(content_x, cursor_y, content_w, template.header_height)
+        cursor_y += template.header_height
+
+    footer_top = template.page_height - template.margin_bottom - template.footer_height
+    body_height = footer_top - cursor_y
+    if body_height < 0:
+        raise ValueError(
+            "Template margins/header/footer leave no room for body content — "
+            "reduce header/footer height or margins."
+        )
+
+    _layout_stack(body, Rect(content_x, cursor_y, content_w, body_height), template, result, prefix="body")
+    _resolve_connectors(body, result)
+
+    return result
+
+
+def _layout_stack(
+    items: list[PrimitiveSpec],
+    rect: Rect,
+    template: Template,
+    result: LayoutResult,
+    prefix: str,
+) -> None:
+    """Lay out primitives top-to-bottom, sharing rect height equally (flex-equal fallback)."""
+    n = len(items)
+    if n == 0:
+        return
+
+    slot_h = (rect.h - template.gutter * (n - 1)) // n if n > 1 else rect.h
+    y = rect.y
+    for i, item in enumerate(items):
+        item_id = item.id or f"{prefix}[{i}]"
+        item_rect = Rect(rect.x, y, rect.w, slot_h)
+        _place_item(item, item_rect, template, result, item_id)
+        y += slot_h + template.gutter
+
+
+def _place_item(
+    item: PrimitiveSpec,
+    rect: Rect,
+    template: Template,
+    result: LayoutResult,
+    item_id: str,
+) -> None:
+    result.rects[item_id] = rect
+    if isinstance(item, Grid):
+        _layout_grid(item, rect, template, result, item_id)
+
+
+def _resolve_grid_columns(grid: Grid) -> int:
+    if grid.columns != "auto":
+        return grid.columns
+    if grid.direction == "column":
+        return 1
+    return max(1, len(grid.items))
+
+
+def _layout_grid(
+    grid: Grid,
+    rect: Rect,
+    template: Template,
+    result: LayoutResult,
+    prefix: str,
+) -> None:
+    """True 2D layout: row/column count, gutter, equal-fr distribution (COMPONO_PLAN.md section 6)."""
+    n = len(grid.items)
+    if n == 0:
+        return
+
+    columns = max(1, min(_resolve_grid_columns(grid), n))
+    rows = math.ceil(n / columns)
+
+    col_w = (rect.w - template.gutter * (columns - 1)) // columns
+    row_h = (rect.h - template.gutter * (rows - 1)) // rows
+
+    for i, item in enumerate(grid.items):
+        r, c = divmod(i, columns)
+        x = rect.x + c * (col_w + template.gutter)
+        y = rect.y + r * (row_h + template.gutter)
+        item_id = item.id or f"{prefix}.items[{i}]"
+        _place_item(item, Rect(x, y, col_w, row_h), template, result, item_id)
+
+
+def _iter_shapes(items: list[PrimitiveSpec]) -> list[Shape]:
+    shapes: list[Shape] = []
+    for item in items:
+        if isinstance(item, Shape):
+            shapes.append(item)
+        elif isinstance(item, Grid):
+            shapes.extend(_iter_shapes(item.items))
+    return shapes
+
+
+def _resolve_connectors(body: list[PrimitiveSpec], result: LayoutResult) -> None:
+    """Second pass: connectors reference other primitives' already-resolved rects by id."""
+    for shape in _iter_shapes(body):
+        if shape.kind != "connector" or shape.connects is None:
+            continue
+        from_id, to_id = shape.connects.from_id, shape.connects.to_id
+        if from_id not in result.rects or to_id not in result.rects:
+            raise ValueError(f"Connector references unknown id(s): {from_id!r}, {to_id!r}")
+        from_rect, to_rect = result.rects[from_id], result.rects[to_id]
+        connector_id = shape.id or f"connector[{from_id}->{to_id}]"
+        result.connectors[connector_id] = ConnectorPoints(
+            start=(from_rect.x + from_rect.w // 2, from_rect.y + from_rect.h // 2),
+            end=(to_rect.x + to_rect.w // 2, to_rect.y + to_rect.h // 2),
+        )
