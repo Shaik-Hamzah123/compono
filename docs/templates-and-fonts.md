@@ -3,13 +3,16 @@
 ## Fonts and templates
 
 A deck's typeface comes from its **template**, not a per-primitive field —
-`Deck.template` (default `"default"`) names a config file under
-`src/compono/templates/`. Two ship today:
+`Deck.template` (default `"default"`) picks a `.yaml` file under
+`src/compono/templates/`. compono currently includes these templates (more
+can be added — see below):
 
 | Template | `font_family` |
 |---|---|
 | `default` | Calibri |
 | `modern` | Georgia |
+| `classic` | Times New Roman |
+| `clean` | Arial |
 
 ```json
 { "template": "modern", "slides": [ ... ] }
@@ -20,7 +23,7 @@ or via the CLI: `compono render spec.json --template modern -o deck.pptx`
 An unknown name is a structured `unknown_template` error (validate/render
 alike), not a crash — the `fix` lists what's available.
 
-**If a user asks the agent for a font that isn't `default` or `modern`:**
+**If a user asks the agent for a font that isn't already bundled:**
 there is no schema field to smuggle an arbitrary typeface through a single
 render call — that's deliberate (see [Core concepts](getting-started.md#core-concepts)); fonts
 live in a reviewed template file, not agent-request data. So:

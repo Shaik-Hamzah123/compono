@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-09-12
+
+### Added
+- Two more bundled templates, covering commonly-requested fonts:
+  `classic` (Times New Roman) and `clean` (Arial), alongside `default`
+  (Calibri) and `modern` (Georgia). No cap on how many templates can
+  exist — `Deck.template` resolves any `.yaml` file under
+  `src/compono/templates/`.
+
+### Changed
+- Root `README.md` is now a slim landing page (install, quickstart,
+  links) instead of a fourth full copy of the reference doc — the
+  screenshot gallery and full section content moved into `docs/*.md`.
+  `skills/compono/SKILL.md` and both `reference.md` copies
+  (`src/compono/reference.md`, `packages/compono-mcp/.../reference.md`)
+  are unchanged and remain the complete, single-file reference an agent
+  gets (Claude Code skill / `compono.reference()` / MCP resource).
+
 ## [0.1.4] - 2026-09-12
 
 ### Added

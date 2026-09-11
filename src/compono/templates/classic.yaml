@@ -1,0 +1,24 @@
+# A traditional serif choice — same page/margins as default.yaml, different
+# typeface. See COMPONO_PLAN.md section 3, item 2.
+
+name: classic
+
+page:
+  width_in: 13.333   # 16:9 widescreen
+  height_in: 7.5
+
+margin_in:
+  top: 0.5
+  right: 0.6
+  bottom: 0.5
+  left: 0.6
+
+header:
+  height_in: 1.2
+
+footer:
+  height_in: 0.4
+
+gutter_in: 0.2
+
+font_family: Times New Roman

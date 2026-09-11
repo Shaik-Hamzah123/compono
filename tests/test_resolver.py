@@ -29,6 +29,8 @@ def test_template_loads_font_family_from_default_yaml(template: Template) -> Non
 def test_template_from_name_resolves_a_bundled_template() -> None:
     assert Template.from_name("default").font_family == "Calibri"
     assert Template.from_name("modern").font_family == "Georgia"
+    assert Template.from_name("classic").font_family == "Times New Roman"
+    assert Template.from_name("clean").font_family == "Arial"
 
 
 def test_template_from_name_raises_on_unknown_name() -> None:

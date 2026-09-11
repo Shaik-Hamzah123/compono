@@ -325,12 +325,13 @@ See `examples/full_catalog.json` in the repo for a complete, runnable spec.
 
 A deck's typeface comes from its **template**, not a per-primitive field —
 `Deck.template` (default `"default"`) names a config file under
-`src/compono/templates/`. Two ship today: `default` (Calibri), `modern`
-(Georgia). `{"template": "modern", "slides": [...]}` is a real, visible
-choice. An unknown name is a structured `unknown_template` error, not a
-crash.
+`src/compono/templates/`. compono currently includes these templates
+(more can be added — see below): `default` (Calibri), `modern`
+(Georgia), `classic` (Times New Roman), and `clean` (Arial).
+`{"template": "modern", "slides": [...]}` is a real, visible choice.
+An unknown name is a structured `unknown_template` error, not a crash.
 
-**If asked for a font that isn't `default` or `modern`:** there is no
+**If asked for a font that isn't already bundled:** there is no
 schema field to smuggle an arbitrary typeface through a render call —
 fonts live in a reviewed template file, not per-request data.
 - With filesystem access to this repo: add a new

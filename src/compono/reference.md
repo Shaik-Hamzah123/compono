@@ -319,8 +319,10 @@ image-generation capability just to build the deck.
 
 A deck's typeface comes from its **template**, not a per-primitive field —
 `Deck.template` (default `"default"`) names a config file under
-`src/compono/templates/`. Two ship today: `default` (Calibri), `modern`
-(Georgia). An unknown name is a structured `unknown_template` error.
+`src/compono/templates/`. compono currently includes these templates
+(more can be added — see below): `default` (Calibri), `modern`
+(Georgia), `classic` (Times New Roman), and `clean` (Arial). An unknown
+name is a structured `unknown_template` error.
 
 A `font_family` is just a name written into the file — PowerPoint resolves
 it against fonts installed on whoever opens the deck; compono does not
