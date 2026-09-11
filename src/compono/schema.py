@@ -97,6 +97,14 @@ class ShapeText(BaseModel):
         default=True,
         description="If true, the shared shrink-to-fit routine reduces font size to avoid overflow.",
     )
+    color: str | None = Field(
+        default=None,
+        description=(
+            "Text color, e.g. a hex string. Omit for the theme default. Set this "
+            "explicitly on a shape with a dark `fill` — review()'s contrast check "
+            "can only evaluate legibility against `fill` when this is set."
+        ),
+    )
 
 
 class ShapeConnects(BaseModel):

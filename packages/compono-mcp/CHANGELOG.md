@@ -9,6 +9,18 @@ Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-12
+
+### Added
+- `review_deck` tool: design-quality suggestions (contrast, whitespace,
+  image fit, font-size proximity to overflow) via `compono.review`. Never
+  blocking — `{suggestions: [...], warnings: [...]}`, suggestions may be
+  empty. Complements `validate_deck`, doesn't replace it.
+
+### Changed
+- `compono` dependency bumped to `>=0.1.4` (needs `review`/`reference`,
+  new in that release).
+
 ## [0.1.0] - 2026-09-12
 
 First release.

@@ -60,10 +60,12 @@ compono render spec.json -o deck.pptx
 
 ## Core concepts
 
-- **One entry point, two verbs.** `render_deck(spec, output_path)` and
-  `validate(spec)` are the only two functions you need. `validate` is cheap
-  — no pptx write, millisecond-scale — so iterate on a spec before paying
-  render cost.
+- **Two required verbs, one optional third.** `render_deck(spec, output_path)`
+  and `validate(spec)` are the core loop — `validate` is cheap, no pptx
+  write, millisecond-scale, so iterate on a spec before paying render cost.
+  `review(spec)` is a separate, never-blocking third verb for design-quality
+  suggestions (contrast, whitespace, image fit) — pair it with the other
+  two, it doesn't replace either.
 - **A spec is plain data.** A raw `dict`/JSON (what tool-calling naturally
   produces) is all you need — pass it straight to `render_deck`/`validate`.
   Typed builder classes (`Deck`, `Header`, `Text`, ...) exist for human
@@ -83,7 +85,7 @@ compono render spec.json -o deck.pptx
 
 ```python
 from compono import (
-    render_deck, validate,
+    render_deck, validate, review, reference,
     Deck, Slide, Header, Text, Image, Stat, Grid, Table, Sequence, Chart, Shape,
     DeckValidationError,
 )
@@ -93,6 +95,8 @@ from compono import (
 |---|---|---|
 | `render_deck` | `render_deck(spec, output_path, *, template=None) -> RenderReport` | Validates, resolves layout, writes a real `.pptx`. Raises `DeckValidationError` on any error — nothing is written on failure. |
 | `validate` | `validate(spec, *, template=None) -> ValidationReport` | Schema + layout + text-overflow checks. No file I/O. Never raises — check `.valid`/`.errors`. |
+| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow). Never blocking — only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
+| `reference` | `reference() -> str` | The full agent-facing reference doc, packaged inside `compono` itself — also `compono reference` on the CLI. |
 | `DeckValidationError` | `exc.errors -> list[dict]` | The one exception type. Carries the structured error list below. |
 
 A `Deck` is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
@@ -171,6 +175,43 @@ render_deck(spec, "q3-roadmap.pptx")  # now succeeds
 spec instead of writing a broken file — the loop above is what an agent
 actually runs, not a hypothetical.
 
+### Design review (`review()`)
+
+`validate()` answers "will this render without breaking." `review()`
+answers "does this look good" — a separate, never-blocking verb: no
+`.valid`, just `.suggestions` (possibly empty) and `.warnings`. Pair the
+two — `review()` assumes a structurally valid deck.
+
+```python
+spec = {
+    "slides": [{
+        "header": {"title": "Architecture"},
+        "body": [{
+            "primitive": "shape", "kind": "rounded_rect", "fill": "#111827",
+            "text": {"content": "Gateway", "color": "#1F2937"},
+        }],
+    }]
+}
+review(spec).suggestions
+```
+
+```json
+[{
+  "slide": 0, "primitive": "body[0]", "field": "text.color", "category": "contrast",
+  "detail": "text.color '#1F2937' against fill '#111827' has a contrast ratio of ~1.2:1 (WCAG AA wants 4.5:1).",
+  "fix": "Pick a lighter/darker text.color for more contrast against fill, or use a lighter/darker fill."
+}]
+```
+
+Four categories today:
+
+| Category | Checks | Requires |
+|---|---|---|
+| `contrast` | WCAG-style ratio between `shape.text.color` and `shape.fill` | Both set explicitly — never guesses a color that wasn't given. |
+| `whitespace` | A body of exactly one primitive left alone in a tall box | Nothing — but **never fires on a header-only slide** (no `body` at all). A title/closing slide being sparse is the deliberate pattern that fix shipped in 0.1.1; there's nothing to be "too empty" relative to. |
+| `image_fit` | A real image (not a placeholder) whose aspect ratio diverges a lot from its box, under `fit="cover"` (crops) or `fit="contain"` (large empty bars) | A real `src`, not a placeholder — nothing to measure otherwise. |
+| `font_size` | Text using most of its box's height without (yet) overflowing | A font (same fallback as overflow validation) — skipped, not faked, otherwise. |
+
 ## Primitive catalog
 
 Every primitive accepts an optional `id` (needed if another primitive
@@ -190,7 +231,7 @@ make by composing primitives, not a schema type to pick.
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. Set `text.color` explicitly against a dark `fill` — `review()`'s contrast check can only evaluate it when both are given. |
 
 Every schema field's description is written as an instruction (e.g. "Keep
 under ~60 characters — longer titles will be shrunk by the resolver"), not
@@ -314,8 +355,12 @@ will list it once shipped.
 
 ```bash
 compono validate spec.json
+compono review spec.json
 compono render spec.json --template modern -o deck.pptx
+compono reference
 ```
 
-Mirrors `validate`/`render_deck` exactly — useful when you can only shell
-out rather than import Python.
+Mirrors `validate`/`review`/`render_deck` exactly — useful when you can
+only shell out rather than import Python. `reference` prints this same
+document to stdout — useful if this skill isn't loaded and there's no MCP
+connection either.

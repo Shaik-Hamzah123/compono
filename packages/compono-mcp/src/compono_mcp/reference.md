@@ -22,8 +22,8 @@ result in PowerPoint and dragging a box around works; it's a real object,
 not a picture of one.
 
 You are receiving this document through the `compono-mcp` MCP server's
-`compono://reference` resource — use its `validate`/`render_deck` tools as
-described below.
+`compono://reference` resource — use its `validate_deck`/`review_deck`/
+`render_deck_tool` tools as described below.
 
 ## Quickstart
 
@@ -59,10 +59,12 @@ the identical `spec` shape instead of importing Python directly.
 
 ## Core concepts
 
-- **One entry point, two verbs.** `render_deck(spec, output_path)` and
-  `validate(spec)` are the only two functions you need. `validate` is cheap
-  — no pptx write, millisecond-scale — so iterate on a spec before paying
-  render cost.
+- **Two required verbs, one optional third.** `render_deck(spec, output_path)`
+  and `validate(spec)` are the core loop — `validate` is cheap, no pptx
+  write, millisecond-scale, so iterate on a spec before paying render cost.
+  `review(spec)` is a separate, never-blocking third verb for design-quality
+  suggestions (contrast, whitespace, image fit) — pair it with the other
+  two, it doesn't replace either.
 - **A spec is plain data.** A raw `dict`/JSON (what tool-calling naturally
   produces) is all you need — pass it straight to `render_deck`/`validate`.
 - **You never write coordinates.** Every primitive claims space in a slide;
@@ -80,8 +82,9 @@ the identical `spec` shape instead of importing Python directly.
 
 | Tool | Input | Output | Notes |
 |---|---|---|---|
-| `validate` | `spec: object` | `{valid, errors, warnings}` | No file write. Never errors out on malformed input — `valid: false` with structured errors instead. |
-| `render_deck` | `spec: object, output_path: string` | `{pptx_path, manifest, warnings}` on success, or `{valid: false, errors}` on failure | Writes a real `.pptx` at `output_path` on the machine running this server. |
+| `validate_deck` | `spec: object` | `{valid, errors, warnings}` | No file write. Never errors out on malformed input — `valid: false` with structured errors instead. |
+| `review_deck` | `spec: object` | `{suggestions, warnings}` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow) — never blocking, no valid/invalid, `suggestions` may be empty. Complements `validate_deck`, doesn't replace it. |
+| `render_deck_tool` | `spec: object, output_path: string` | `{pptx_path, manifest, warnings}` on success, or `{valid: false, errors}` on failure | Writes a real `.pptx` at `output_path` on the machine running this server. |
 
 A `spec` (a `Deck`) is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
 `{header?: Header, body: [primitive, ...], notes?: str}`. `body` (and
@@ -159,6 +162,43 @@ render_deck(spec, "q3-roadmap.pptx")  # now succeeds
 spec instead of writing a broken file — the loop above is what an agent
 actually runs, not a hypothetical.
 
+### Design review (`review()`)
+
+`validate()` answers "will this render without breaking." `review()`
+answers "does this look good" — a separate, never-blocking verb: no
+`.valid`, just `.suggestions` (possibly empty) and `.warnings`. Pair the
+two — `review()` assumes a structurally valid deck.
+
+```python
+spec = {
+    "slides": [{
+        "header": {"title": "Architecture"},
+        "body": [{
+            "primitive": "shape", "kind": "rounded_rect", "fill": "#111827",
+            "text": {"content": "Gateway", "color": "#1F2937"},
+        }],
+    }]
+}
+review(spec).suggestions
+```
+
+```json
+[{
+  "slide": 0, "primitive": "body[0]", "field": "text.color", "category": "contrast",
+  "detail": "text.color '#1F2937' against fill '#111827' has a contrast ratio of ~1.2:1 (WCAG AA wants 4.5:1).",
+  "fix": "Pick a lighter/darker text.color for more contrast against fill, or use a lighter/darker fill."
+}]
+```
+
+Four categories today:
+
+| Category | Checks | Requires |
+|---|---|---|
+| `contrast` | WCAG-style ratio between `shape.text.color` and `shape.fill` | Both set explicitly — never guesses a color that wasn't given. |
+| `whitespace` | A body of exactly one primitive left alone in a tall box | Nothing — but **never fires on a header-only slide** (no `body` at all). A title/closing slide being sparse is the deliberate pattern that fix shipped in 0.1.1; there's nothing to be "too empty" relative to. |
+| `image_fit` | A real image (not a placeholder) whose aspect ratio diverges a lot from its box, under `fit="cover"` (crops) or `fit="contain"` (large empty bars) | A real `src`, not a placeholder — nothing to measure otherwise. |
+| `font_size` | Text using most of its box's height without (yet) overflowing | A font (same fallback as overflow validation) — skipped, not faked, otherwise. |
+
 ## Primitive catalog
 
 Every primitive accepts an optional `id` (needed if another primitive
@@ -178,7 +218,7 @@ make by composing primitives, not a schema type to pick.
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. |
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. Set `text.color` explicitly against a dark `fill` — `review_deck`'s contrast check can only evaluate it when both are given. |
 
 ### Image placeholders
 

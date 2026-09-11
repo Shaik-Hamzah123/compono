@@ -1,4 +1,4 @@
-"""MCP server exposing compono's render_deck/validate as MCP tools.
+"""MCP server exposing compono's render_deck/validate/review as MCP tools.
 
 Every tool here is a thin proxy — no reimplemented logic. `spec` parameters
 are typed as plain `dict`, not the `Deck` pydantic model, so malformed input
@@ -14,7 +14,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from compono import DeckValidationError, render_deck, validate
+from compono import DeckValidationError, render_deck, review, validate
 
 mcp = FastMCP("compono")
 
@@ -49,6 +49,17 @@ def render_deck_tool(spec: dict[str, Any], output_path: str) -> dict[str, Any]:
         "manifest": report.manifest,
         "warnings": report.warnings,
     }
+
+
+@mcp.tool()
+def review_deck(spec: dict[str, Any]) -> dict[str, Any]:
+    """Design-quality suggestions for a compono deck spec: contrast, whitespace,
+    image fit, font-size proximity to overflow. Never blocking — no valid/invalid,
+    only {suggestions: [...], warnings: [...]}; suggestions may be empty.
+    Complements validate_deck, doesn't replace it — pair the two.
+    """
+    report = review(spec)
+    return {"suggestions": report.suggestions, "warnings": report.warnings}
 
 
 @mcp.resource("compono://reference")

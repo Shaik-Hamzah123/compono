@@ -6,7 +6,7 @@ carry compono's examples/ directory).
 
 from pathlib import Path
 
-from compono_mcp.server import reference, render_deck_tool, validate_deck
+from compono_mcp.server import reference, render_deck_tool, review_deck, validate_deck
 
 MINIMAL_SPEC = {
     "slides": [
@@ -66,6 +66,32 @@ def test_render_deck_tool_returns_structured_errors_instead_of_raising(
     assert result["valid"] is False
     assert result["errors"]
     assert not output.exists()
+
+
+def test_review_deck_returns_suggestions_never_blocking() -> None:
+    result = review_deck(MINIMAL_SPEC)
+    assert "suggestions" in result and "warnings" in result
+    assert isinstance(result["suggestions"], list)
+
+
+def test_review_deck_flags_low_contrast_shape_text() -> None:
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Contrast check"},
+                "body": [
+                    {
+                        "primitive": "shape",
+                        "kind": "rounded_rect",
+                        "fill": "#111827",
+                        "text": {"content": "Hard to read", "color": "#1F2937"},
+                    }
+                ],
+            }
+        ]
+    }
+    result = review_deck(spec)
+    assert any(s["category"] == "contrast" for s in result["suggestions"])
 
 
 def test_reference_resource_returns_nonempty_text_with_expected_content() -> None:

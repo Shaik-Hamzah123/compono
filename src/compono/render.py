@@ -253,6 +253,18 @@ def _unknown_template_error(detail: str) -> dict[str, Any]:
     }
 
 
+def resolve_deck_template(deck: Deck, template: Template | None) -> Template:
+    """An explicit `template=` kwarg always wins; otherwise resolve the name the
+    spec itself asked for (`Deck.template`, schema.py) — previously unwired,
+    every render silently used the hardcoded default regardless of this field.
+    Raises ValueError (from Template.from_name) on an unknown name — shared by
+    validate/render_deck/review, each of which reports it in their own shape.
+    """
+    if template is not None:
+        return template
+    return Template.from_name(deck.template)
+
+
 def validate(
     spec: dict[str, Any] | Deck, *, template: Template | None = None
 ) -> ValidationReport:
@@ -262,18 +274,10 @@ def validate(
     except DeckValidationError as exc:
         return ValidationReport(valid=False, errors=exc.errors)
 
-    # An explicit `template=` kwarg always wins; otherwise resolve the name the
-    # spec itself asked for (`Deck.template`, schema.py) — previously unwired,
-    # every render silently used the hardcoded default regardless of this field.
-    if template is not None:
-        resolved_template = template
-    else:
-        try:
-            resolved_template = Template.from_name(deck.template)
-        except ValueError as exc:
-            return ValidationReport(
-                valid=False, errors=[_unknown_template_error(str(exc))]
-            )
+    try:
+        resolved_template = resolve_deck_template(deck, template)
+    except ValueError as exc:
+        return ValidationReport(valid=False, errors=[_unknown_template_error(str(exc))])
 
     font_path = _resolve_font_path()
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
@@ -300,15 +304,10 @@ def render_deck(
 
     deck = _parse_deck(spec)
 
-    if template is not None:
-        resolved_template = template
-    else:
-        try:
-            resolved_template = Template.from_name(deck.template)
-        except ValueError as exc:
-            raise DeckValidationError(
-                [_unknown_template_error(str(exc))]
-            ) from exc
+    try:
+        resolved_template = resolve_deck_template(deck, template)
+    except ValueError as exc:
+        raise DeckValidationError([_unknown_template_error(str(exc))]) from exc
 
     font_path = _resolve_font_path()
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
@@ -531,6 +530,10 @@ def _render_shape(
         tf.text = shape.text.content
         tf.vertical_anchor = _VALIGN_TO_MSO[shape.text.valign]
         tf.paragraphs[0].font.name = template.font_family
+        if shape.text.color:
+            tf.paragraphs[0].font.color.rgb = RGBColor.from_string(
+                shape.text.color.lstrip("#")
+            )
         tf.paragraphs[0].alignment = _ALIGN_TO_PP[shape.text.align]
 
 

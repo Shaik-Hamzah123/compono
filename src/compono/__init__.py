@@ -4,6 +4,7 @@ Public exports ONLY (COMPONO_PLAN.md section 10) — resolver/validator/template
 loader stay internal, reached only through render_deck/validate.
 """
 
+from compono.reference import reference
 from compono.render import (
     DeckValidationError,
     RenderReport,
@@ -11,6 +12,7 @@ from compono.render import (
     render_deck,
     validate,
 )
+from compono.review import ReviewReport, review
 from compono.schema import (
     Chart,
     Deck,
@@ -33,6 +35,7 @@ __all__ = [
     "Header",
     "Image",
     "RenderReport",
+    "ReviewReport",
     "Sequence",
     "Shape",
     "Slide",
@@ -40,6 +43,8 @@ __all__ = [
     "Table",
     "Text",
     "ValidationReport",
+    "reference",
     "render_deck",
+    "review",
     "validate",
 ]

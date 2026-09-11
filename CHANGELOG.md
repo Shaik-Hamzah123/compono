@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-12
+
+### Added
+- `review(spec, *, template=None) -> ReviewReport` — a third public verb,
+  separate from `validate()`: design-quality suggestions, never blocking
+  (no `.valid`, only `.suggestions` — possibly empty — and `.warnings`).
+  Four categories: `contrast` (WCAG-style ratio between `shape.text.color`
+  and `shape.fill`, only when both are set — never guesses a color),
+  `whitespace` (a lone top-level body primitive left alone in a tall box —
+  uses `LayoutResult.parents` for real containment, and **never fires on a
+  header-only slide**, since a sparse title/closing slide is the
+  deliberate pattern the 0.1.1 fix shipped, not a defect), `image_fit` (a
+  real image, not a placeholder, whose aspect ratio diverges a lot from
+  its box), and `font_size` (text using most of its box's height without
+  yet overflowing — a proactive nudge distinct from `validate()`'s hard
+  error, reusing the same `check_overflow`).
+- `ShapeText.color` (schema.py): explicit text color for `shape.text`,
+  needed for `review()`'s contrast check to have something concrete to
+  measure — previously shape text always used the theme default with no
+  way to set it.
+- `reference() -> str` (and `compono reference` on the CLI): the same
+  reference content as README/SKILL.md, packaged inside `compono` itself
+  so a bare `pip install compono` — no MCP connection, no Claude Code
+  skill loaded — still gives an agent with shell/code-exec access a way
+  to self-serve the documentation.
+- `compono review spec.json` CLI subcommand, mirroring `validate`/`render`.
+- `compono-mcp` gains a `review_deck` tool (its own CHANGELOG/version).
+
 ## [0.1.3] - 2026-09-12
 
 ### Added

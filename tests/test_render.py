@@ -209,6 +209,26 @@ def test_cli_validate_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) 
     assert result["valid"] is True
 
 
+def test_cli_review_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    spec_path = tmp_path / "minimal.json"
+    spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    exit_code = cli_main(["review", str(spec_path)])
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert exit_code == 0
+    assert "suggestions" in result and "warnings" in result
+
+
+def test_cli_reference_prints_nonempty_text(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    exit_code = cli_main(["reference"])
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert len(captured.out) > 500
+    assert "render_deck" in captured.out
+
+
 def test_cli_render_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     spec_path = tmp_path / "minimal.json"
     spec_path.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")

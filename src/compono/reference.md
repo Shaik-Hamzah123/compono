@@ -1,57 +1,33 @@
+<!--
+  Served verbatim by compono.reference() / `compono reference` (see
+  reference.py) — packaged inside compono itself so it ships with a bare
+  `pip install compono`, no MCP connection or Claude Code skill required.
+  Kept in sync with the repo root README.md, skills/compono/SKILL.md, and
+  packages/compono-mcp/src/compono_mcp/reference.md (served instead as the
+  `compono://reference` MCP resource for MCP clients). Update all four
+  together when the API surface changes.
+-->
+
 # compono
 
 **Agent-oriented, code-based PPTX generation.** Describe a deck as typed
 primitives — an LLM agent never writes raw coordinates or touches OOXML.
 
-compono lets an LLM agent (or a human) describe a slide deck as data —
-headers, bullet text, stats, tables, charts, images, process sequences,
-shapes — and get back a real, editable `.pptx` file. The agent never writes
-raw `x`/`y`/`w`/`h` coordinates: a constraint-based layout resolver computes
-every position from a small set of typed primitives.
+compono lets you describe a slide deck as data — headers, bullet text,
+stats, tables, charts, images, process sequences, shapes — and get back a
+real, editable `.pptx` file. You never write raw `x`/`y`/`w`/`h`
+coordinates: a constraint-based layout resolver computes every position
+from a small set of typed primitives.
 
 Every rendered element is a genuine, editable native shape (`p:sp`, `p:pic`,
-`p:graphicFrame`) — never a flattened image or embedded video. Open the
-result in PowerPoint and drag a box around; it's a real object, not a
-picture of one.
+`p:graphicFrame`) — never a flattened image or embedded video. Opening the
+result in PowerPoint and dragging a box around works; it's a real object,
+not a picture of one.
 
-This file is both the human-facing README and the in-context reference an
-agent uses to call compono correctly — see `skills/compono/SKILL.md` for the
-packaged version of the same content.
-
-## See it in action
-
-compono isn't scoped to one deck genre — the same primitives compose into
-client proposals, conference talks, research talks, college presentations,
-or a lighter explainer. Every image below is rendered directly from the
-matching `examples/*.json` spec (`.pptx` → PNG via LibreOffice, see
-`scripts/render_example_screenshots.py`) — nothing here is a mockup:
-
-| Client proposal | Conference talk |
-|---|---|
-| ![KPI grid](assets/screenshots/client_proposal/slide-2.png) | ![Planner/Executor architecture](assets/screenshots/conference_talk/slide-4.png) |
-
-| Research talk | Fun explainer |
-|---|---|
-| ![Loss curves](assets/screenshots/research_talk/slide-4.png) | ![Roast levels](assets/screenshots/fun_explainer/slide-3.png) |
-
-`shape` + `connector` compose into real diagrams, not just colored boxes —
-a layered system architecture, built entirely from `examples/architecture_diagram.json`:
-
-![Layered architecture: client → gateway → services → queue → database](assets/screenshots/architecture_diagram/slide-1.png)
-
-See `examples/` for the full specs (`client_proposal.json`,
-`conference_talk.json`, `research_talk.json`, `college_presentation.json`,
-`fun_explainer.json`, `architecture_diagram.json`, and `full_catalog.json`).
-
-## Install
-
-```bash
-pip install compono
-# or
-uv add compono
-```
-
-For local development, see `CONTRIBUTING.md`.
+You are receiving this document via `compono.reference()` / `compono
+reference` — for an agent with code-exec or shell access but no MCP
+connection or Claude Code skill loaded. Use its `render_deck`/`validate`/
+`review` functions (or the CLI's matching subcommands) as described below.
 
 ## Quickstart
 
@@ -82,35 +58,29 @@ report = render_deck(spec, "deck.pptx")
 print(report.pptx_path, report.warnings)
 ```
 
-Or from the command line:
-
-```bash
-compono validate spec.json
-compono render spec.json -o deck.pptx
-```
+Through this MCP server, call the `validate` and `render_deck` tools with
+the identical `spec` shape instead of importing Python directly.
 
 ## Core concepts
 
 - **Two required verbs, one optional third.** `render_deck(spec, output_path)`
   and `validate(spec)` are the core loop — `validate` is cheap, no pptx
-  write, millisecond-scale, so an agent can iterate on a spec before paying
-  render cost. `review(spec)` is a separate, never-blocking third verb for
-  design-quality suggestions (contrast, whitespace, image fit) — pair it
-  with the other two, it doesn't replace either.
-- **A spec is plain data.** Either a raw `dict`/JSON (what an agent's
-  tool-calling naturally produces) or the typed builder classes
-  (`Deck`, `Header`, `Text`, ...) — both serialize to the identical shape.
-  There's no divergence between the two paths.
+  write, millisecond-scale, so iterate on a spec before paying render cost.
+  `review(spec)` is a separate, never-blocking third verb for design-quality
+  suggestions (contrast, whitespace, image fit) — pair it with the other
+  two, it doesn't replace either.
+- **A spec is plain data.** A raw `dict`/JSON (what tool-calling naturally
+  produces) is all you need — pass it straight to `render_deck`/`validate`.
 - **You never write coordinates.** Every primitive claims space in a slide;
   the resolver (a CSS-flexbox-style directional box model) computes real
   EMU positions. `grid` is the one primitive that does true 2D
   row/column math.
 - **Errors are fixes, not diagnoses.** Every validation/render failure is
   `{slide, primitive, field, error, detail, fix}` — see
-  [Error shape](#error-shape) below.
+  [Error shape](#error-shape) below. Act on `fix`, don't just retry blindly.
 - **render_deck returns a report, not just a file** —
-  `{pptx_path, manifest, warnings, actual_layout}` — so an agent can reason
-  about what happened without reopening the file.
+  `{pptx_path, manifest, warnings, actual_layout}` — reason about what
+  happened without reopening the file.
 
 ## API reference
 
@@ -126,13 +96,16 @@ from compono import (
 |---|---|---|
 | `render_deck` | `render_deck(spec, output_path, *, template=None) -> RenderReport` | Validates, resolves layout, writes a real `.pptx`. Raises `DeckValidationError` on any error — nothing is written on failure. |
 | `validate` | `validate(spec, *, template=None) -> ValidationReport` | Schema + layout + text-overflow checks. No file I/O. Never raises — check `.valid`/`.errors`. |
-| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow). Never blocking — no valid/invalid, only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
-| `reference` | `reference() -> str` | The full agent-facing reference doc (this file's content), packaged inside `compono` itself — for an agent with only shell/code-exec access, no MCP connection or Claude Code skill loaded. Also `compono reference` on the CLI. |
+| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow). Never blocking — only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
+| `reference` | `reference() -> str` | This document, verbatim — also `compono reference` on the CLI. |
 | `DeckValidationError` | `exc.errors -> list[dict]` | The one exception type. Carries the structured error list below. |
 
-A `Deck` is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
+A `spec` (a `Deck`) is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
 `{header?: Header, body: [primitive, ...], notes?: str}`. `body` (and
 `grid.items`) accept any primitive, keyed by its `"primitive"` field.
+
+**Prefer `validate` before `render_deck` when iterating** — it's cheap and
+gives you the same structured errors without writing a file.
 
 ### Error shape
 
@@ -244,6 +217,10 @@ Four categories today:
 
 Every primitive accepts an optional `id` (needed if another primitive
 references it, e.g. a connector) and an optional `notes` (speaker notes).
+There is no separate "title slide" / "content slide" / "thank-you slide"
+taxonomy — a slide is just `{header?, body: [...]}`, and genre/density/tone
+decisions (what kind of slide this is, how much goes on it) are yours to
+make by composing primitives, not a schema type to pick.
 
 | Primitive | Key fields | Purpose |
 |---|---|---|
@@ -255,23 +232,18 @@ references it, e.g. a connector) and an optional `notes` (speaker notes).
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. Set `text.color` explicitly against a dark `fill` — `review()`'s contrast check can only evaluate it when both are given. |
-
-Every schema field's description is written as an instruction (e.g. "Keep
-under ~60 characters — longer titles will be shrunk by the resolver"), not
-a bare type label — call `Header.model_json_schema()` (or any primitive
-class) to get the full JSON Schema with these descriptions inline.
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. Set `text.color` explicitly against a dark `fill` — `review_deck`'s contrast check can only evaluate it when both are given. |
 
 ### Image placeholders
 
 Set `"placeholder": true` (with an optional `caption`) instead of `src` when
 you don't have a real image yet. It renders as an intentional design
-element — dashed border, centered caption — and `render_deck`'s
-`RenderReport.manifest` gets one entry per placeholder:
+element — dashed border, centered caption — and `render_deck`'s response
+gets one manifest entry per placeholder:
 `{slide, primitive, rect: {x, y, w, h}, caption}`. A later pass (image
 search/generation/human upload) can fill each reserved rect directly from
-the manifest EMU rect — no re-layout needed, and the deck-building agent
-itself never needs image-generation capability.
+the manifest EMU rect — no re-layout needed, and you don't need
+image-generation capability just to build the deck.
 
 ## Worked examples
 
@@ -343,55 +315,26 @@ itself never needs image-generation capability.
 }
 ```
 
-See `examples/full_catalog.json` for a complete, runnable spec (also used
-as a test fixture).
-
 ## Fonts and templates
 
 A deck's typeface comes from its **template**, not a per-primitive field —
 `Deck.template` (default `"default"`) names a config file under
-`src/compono/templates/`. Two ship today:
+`src/compono/templates/`. Two ship today: `default` (Calibri), `modern`
+(Georgia). An unknown name is a structured `unknown_template` error.
 
-| Template | `font_family` |
-|---|---|
-| `default` | Calibri |
-| `modern` | Georgia |
+A `font_family` is just a name written into the file — PowerPoint resolves
+it against fonts installed on whoever opens the deck; compono does not
+embed font files. If asked for a font that isn't `default`/`modern`, there
+is no schema field for it — either fall back to an existing template, or
+(with filesystem access to this repo) add a new `templates/<name>.yaml`.
 
-```json
-{ "template": "modern", "slides": [ ... ] }
-```
+## Fonts and overflow validation
 
-or via the CLI: `compono render spec.json --template modern -o deck.pptx`
-(a CLI/kwarg `template` always overrides the spec's own `template` field).
-An unknown name is a structured `unknown_template` error (validate/render
-alike), not a crash — the `fix` lists what's available.
-
-**If a user asks the agent for a font that isn't `default` or `modern`:**
-there is no schema field to smuggle an arbitrary typeface through a single
-render call — that's deliberate (see [Core concepts](#core-concepts)); fonts
-live in a reviewed template file, not agent-request data. So:
-- **A coding agent with write access to this repo** (e.g. Claude Code
-  working on `compono` itself) can add a new
-  `src/compono/templates/<name>.yaml` — copy `default.yaml`'s page/margin
-  values, set the requested `font_family` — then use `{"template": "<name>"}`
-  going forward. This is a one-time, reviewed, host-side change, the same as
-  adding `modern.yaml` was.
-- **An agent that only has `render_deck`/`validate` as tools** (e.g. over
-  MCP, no filesystem access to `compono`'s own package) **cannot** invent a
-  template on the fly. It should tell the user the requested font isn't
-  available, list the templates that are, and either fall back to one of
-  them or ask a human to add the template file.
-
-Overflow checking (`validate`'s layout errors, and the "shrink text on
-overflow" behavior it protects against) reads real glyph advance widths via
-`fonttools` — no rendering required. As of this release, no font is bundled
-into the package yet (`src/compono/fonts/` is a placeholder); validation
-falls back to a system font if one is found (e.g. `arial.ttf` on Windows),
-and is skipped — not faked — with a warning if none is available. This is
-independent of `font_family` above — overflow metrics don't yet reflect the
-template's chosen typeface (known limitation, see CHANGELOG). A bundled,
-OFL-licensed safe-font list is planned before the first tagged release; this
-section will list it once shipped.
+Overflow checking reads real glyph advance widths via `fonttools` — no
+rendering required. As of this release, no font is bundled yet; validation
+falls back to a system font if one is found, and is skipped — not faked —
+with a warning if none is available. This is independent of `font_family`
+— overflow metrics don't yet reflect the template's chosen typeface.
 
 ## CLI
 
@@ -402,69 +345,6 @@ compono render spec.json --template modern -o deck.pptx
 compono reference
 ```
 
-Mirrors `validate`/`review`/`render_deck` exactly — useful for agent
-frameworks that can only shell out rather than import Python. `reference`
-prints the same content as this README to stdout, for any agent with shell
-access but no MCP connection or Claude Code skill loaded (a bare
-`pip install compono` gets neither of those automatically — see
-[When compono has no context](#when-compono-has-no-context) below).
-
-## MCP server
-
-[`compono-mcp`](packages/compono-mcp) exposes `validate`/`review`/`render_deck`
-as MCP tools, for any MCP-compatible client — not just Claude Code.
-
-```bash
-pip install compono-mcp
-# or
-uv add compono-mcp
-```
-
-Add to your MCP client config (Claude Desktop / Claude Code style):
-
-```json
-{ "mcpServers": { "compono": { "command": "compono-mcp" } } }
-```
-
-Exposes `validate_deck`/`review_deck`/`render_deck_tool` tools (identical
-`spec` shape to the Python API) and a `compono://reference` resource
-carrying the full agent-facing reference doc, for clients without Claude
-Code's skill system.
-
-### When compono has no context
-
-Two channels put this reference in front of an agent automatically:
-Claude Code with this skill installed, and an MCP client that fetches the
-`compono://reference` resource above. A bare `pip install compono` and
-"write me code using this" to a generic LLM gets **neither** — that LLM
-has no built-in knowledge of compono's primitives or conventions.
-
-Two ways it can still self-serve, depending on what access it has:
-- **Code-exec access**: the schema is deliberately self-documenting — every
-  field's `description` is agent-facing prose, not a bare type label (see
-  [Primitive catalog](#primitive-catalog)). `Deck.model_json_schema()` or
-  `help(compono.Header)` gets real guidance without needing this file at all.
-- **Shell access, no code-exec**: `compono reference` (or
-  `python -c "import compono; print(compono.reference())"`) prints this
-  exact content — the same reason it's packaged inside `compono` itself
-  rather than only living in `SKILL.md`/`compono-mcp`.
-
-An LLM with neither (pure text generation, no tools) has nothing beyond
-whatever it can recall from training data, or the PyPI/GitHub README page
-if it happens to search for it.
-
-## Claude Code plugin
-
-This repo is also a Claude Code plugin marketplace, bundling the
-`skills/compono/SKILL.md` reference doc as an installable skill:
-
-```
-/plugin marketplace add Shaik-Hamzah123/compono
-/plugin install compono
-```
-
-## Contributing
-
-See `CONTRIBUTING.md` for dev setup, branching, and code style. If you're
-using Claude Code, `.claude/README.md` describes the build-workflow skill,
-review subagent, and commit/format hooks set up for this repo.
+Mirrors `validate`/`review`/`render_deck`/`reference` exactly — useful when
+shell access is available but importing Python isn't (or as a quick check
+without writing a script).

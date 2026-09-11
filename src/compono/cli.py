@@ -1,7 +1,9 @@
-"""Console-script entry point mirroring the render_deck/validate verbs.
+"""Console-script entry point mirroring the render_deck/validate/review verbs.
 
 compono validate spec.json
+compono review spec.json
 compono render spec.json --template modern -o deck.pptx
+compono reference
 """
 
 from __future__ import annotations
@@ -11,8 +13,10 @@ import json
 import sys
 from pathlib import Path
 
+from compono.reference import reference
 from compono.render import DeckValidationError, render_deck, validate
 from compono.resolver import Template
+from compono.review import review
 
 
 def _load_spec(path: str) -> dict:
@@ -27,6 +31,20 @@ def main(argv: list[str] | None = None) -> int:
         "validate", help="Validate a deck spec without rendering."
     )
     validate_parser.add_argument("spec", help="Path to a JSON deck spec.")
+
+    review_parser = subparsers.add_parser(
+        "review", help="Design-quality suggestions for a deck spec (never blocking)."
+    )
+    review_parser.add_argument("spec", help="Path to a JSON deck spec.")
+
+    subparsers.add_parser(
+        "reference",
+        help=(
+            "Print compono's full agent-facing reference (quickstart, primitive "
+            "catalog, error shape) — for any agent with shell access but no MCP "
+            "or Claude Code skill loaded."
+        ),
+    )
 
     render_parser = subparsers.add_parser(
         "render", help="Render a deck spec to a .pptx file."
@@ -60,6 +78,31 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         return 0 if validation_report.valid else 1
+
+    if args.command == "review":
+        spec = _load_spec(args.spec)
+        try:
+            review_report = review(spec)
+        except DeckValidationError as exc:
+            print(
+                json.dumps({"valid": False, "errors": exc.errors}, indent=2),
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            json.dumps(
+                {
+                    "suggestions": review_report.suggestions,
+                    "warnings": review_report.warnings,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "reference":
+        print(reference())
+        return 0
 
     if args.command == "render":
         spec = _load_spec(args.spec)
