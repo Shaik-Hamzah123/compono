@@ -104,7 +104,9 @@ def test_nested_grid_ids_are_prefixed(template: Template) -> None:
     assert "body[0].items[0].items[0]" in result.rects
 
 
-def test_layout_result_items_pair_id_with_originating_primitive(template: Template) -> None:
+def test_layout_result_items_pair_id_with_originating_primitive(
+    template: Template,
+) -> None:
     header = Header(title="Q3 Results")
     body_text = Text(content="Body copy")
     result = resolve_slide(template, header=header, body=[body_text])
@@ -118,6 +120,22 @@ def test_explicit_id_overrides_generated_id(template: Template) -> None:
     result = resolve_slide(template, body=body)
     assert "my-text" in result.rects
     assert "body[0]" not in result.rects
+
+
+def test_parents_records_real_containment_even_with_explicit_ids(
+    template: Template,
+) -> None:
+    grid = Grid(
+        id="my-grid",
+        items=[
+            {"primitive": "shape", "id": "box-a", "kind": "rect"},
+            {"primitive": "shape", "kind": "rect"},
+        ],
+    )
+    result = resolve_slide(template, body=[grid])
+    assert result.parents["box-a"] == "my-grid"
+    assert result.parents["my-grid.items[1]"] == "my-grid"
+    assert "body[0]" not in result.parents  # top-level items have no parent
 
 
 def test_connector_resolves_start_and_end_points(template: Template) -> None:
@@ -135,7 +153,11 @@ def test_connector_resolves_start_and_end_points(template: Template) -> None:
 
 
 def test_connector_unknown_id_raises(template: Template) -> None:
-    body = [Shape(kind="connector", connects={"from_id": "missing", "to_id": "also-missing"})]
+    body = [
+        Shape(
+            kind="connector", connects={"from_id": "missing", "to_id": "also-missing"}
+        )
+    ]
     with pytest.raises(ValueError, match="unknown id"):
         resolve_slide(template, body=body)
 

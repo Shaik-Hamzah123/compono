@@ -5,14 +5,24 @@
 ```
 git clone <repo>
 cd compono
-uv sync --all-extras
+uv sync
 ```
 
-## Running tests
+## Running checks
+
+A `Makefile` wraps the common commands:
 
 ```
-uv run pytest
+make check       # lint + typecheck + test (what the pre-commit hook runs)
+make lint         # ruff check
+make format       # ruff format + ruff check --fix
+make typecheck    # mypy src
+make test         # pytest -q
+make build        # uv build
 ```
+
+(No `make`? Run the underlying `uv run ...` commands directly — see the
+Makefile for the exact invocations.)
 
 ## Branching
 

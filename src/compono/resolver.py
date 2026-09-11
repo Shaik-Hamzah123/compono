@@ -83,6 +83,11 @@ class LayoutResult:
     # The primitive that produced each rect, keyed by the same id — a single
     # source of truth so render.py never has to re-derive the id scheme above.
     items: dict[str, PrimitiveBase] = field(default_factory=dict)
+    # Real parent-child id relationships (child id -> parent grid's id), captured
+    # during grid recursion — a grid's rect legitimately contains its children's
+    # rects, so consumers checking for overlap need real containment, not a
+    # string-prefix guess (explicit `id` overrides break any such guess).
+    parents: dict[str, str] = field(default_factory=dict)
 
 
 def resolve_slide(
@@ -92,7 +97,9 @@ def resolve_slide(
 ) -> LayoutResult:
     """Resolve one slide: header region top, footer pinned bottom, body fills the remainder."""
     body = body or []
-    result = LayoutResult(page_width=template.page_width, page_height=template.page_height)
+    result = LayoutResult(
+        page_width=template.page_width, page_height=template.page_height
+    )
 
     content_x = template.margin_left
     content_w = template.page_width - template.margin_left - template.margin_right
@@ -100,7 +107,9 @@ def resolve_slide(
 
     if header is not None:
         header_id = header.id or "header"
-        result.rects[header_id] = Rect(content_x, cursor_y, content_w, template.header_height)
+        result.rects[header_id] = Rect(
+            content_x, cursor_y, content_w, template.header_height
+        )
         result.items[header_id] = header
         cursor_y += template.header_height
 
@@ -112,7 +121,13 @@ def resolve_slide(
             "reduce header/footer height or margins."
         )
 
-    _layout_stack(body, Rect(content_x, cursor_y, content_w, body_height), template, result, prefix="body")
+    _layout_stack(
+        body,
+        Rect(content_x, cursor_y, content_w, body_height),
+        template,
+        result,
+        prefix="body",
+    )
     _resolve_connectors(body, result)
 
     return result
@@ -183,6 +198,7 @@ def _layout_grid(
         x = rect.x + c * (col_w + template.gutter)
         y = rect.y + r * (row_h + template.gutter)
         item_id = item.id or f"{prefix}.items[{i}]"
+        result.parents[item_id] = prefix
         _place_item(item, Rect(x, y, col_w, row_h), template, result, item_id)
 
 
@@ -203,7 +219,9 @@ def _resolve_connectors(body: list[PrimitiveSpec], result: LayoutResult) -> None
             continue
         from_id, to_id = shape.connects.from_id, shape.connects.to_id
         if from_id not in result.rects or to_id not in result.rects:
-            raise ValueError(f"Connector references unknown id(s): {from_id!r}, {to_id!r}")
+            raise ValueError(
+                f"Connector references unknown id(s): {from_id!r}, {to_id!r}"
+            )
         from_rect, to_rect = result.rects[from_id], result.rects[to_id]
         connector_id = shape.id or f"connector[{from_id}->{to_id}]"
         result.connectors[connector_id] = ConnectorPoints(
