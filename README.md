@@ -20,7 +20,9 @@ packaged version of the same content.
 ## Install
 
 ```bash
-pip install compono   # not yet published — see CHANGELOG.md for status
+pip install compono
+# or
+uv add compono
 ```
 
 For local development, see `CONTRIBUTING.md`.
