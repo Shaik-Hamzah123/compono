@@ -1,4 +1,4 @@
-# compono-js
+# @skhamzah123/compono-js
 
 **Agent-oriented, code-based PPTX generation for TypeScript/JS.** Describe
 a deck as typed primitives — an LLM agent never writes raw coordinates or
@@ -22,13 +22,13 @@ backend.
 ## Install
 
 ```bash
-npm install compono-js
+npm install @skhamzah123/compono-js
 ```
 
 ## Quickstart
 
 ```ts
-import { renderDeck } from "compono-js";
+import { renderDeck } from "@skhamzah123/compono-js";
 
 const spec = {
   slides: [
@@ -52,8 +52,8 @@ console.log(report.pptxPath, report.warnings);
 Or from the command line:
 
 ```bash
-npx compono-js validate spec.json
-npx compono-js render spec.json -o deck.pptx --template modern
+npx --package=@skhamzah123/compono-js compono-js validate spec.json
+npx --package=@skhamzah123/compono-js compono-js render spec.json -o deck.pptx --template modern
 ```
 
 ## What's ported, what isn't (yet)

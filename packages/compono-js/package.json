@@ -1,10 +1,13 @@
 {
-  "name": "compono-js",
+  "name": "@skhamzah123/compono-js",
   "version": "0.1.0",
   "description": "Agent-oriented, code-based PPTX generation for TypeScript/JS — typed primitives, no raw coordinates, rendered via pptxgenjs.",
   "type": "module",
   "license": "MIT",
   "author": "Shaik-Hamzah123 <hamzah.shaik2003@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
