@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from pptx import Presentation
+from pptx.dml.color import RGBColor
 
 from compono.cli import main as cli_main
 from compono.render import DeckValidationError, render_deck, validate
@@ -197,6 +198,48 @@ def test_explicit_template_kwarg_overrides_deck_template_field(
         for p in shape.text_frame.paragraphs
     }
     assert fonts == {"Calibri"}
+
+
+def test_render_shape_text_applies_color_and_font_to_every_line(
+    tmp_path: Path,
+) -> None:
+    """shape.text.content with embedded "\\n"s becomes multiple paragraphs
+    (python-pptx's text_frame.text setter splits on newline) — a bug once
+    only formatted paragraphs[0], leaving every line after the first in the
+    theme default font/color instead of the one the agent asked for.
+    """
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Card"},
+                "body": [
+                    {
+                        "primitive": "shape",
+                        "kind": "rounded_rect",
+                        "fill": "#FDB71A",
+                        "text": {
+                            "content": "Line one\nLine two\nLine three",
+                            "color": "#1A2332",
+                        },
+                    }
+                ],
+            }
+        ]
+    }
+    output = tmp_path / "deck.pptx"
+    render_deck(spec, output)
+
+    prs = Presentation(str(output))
+    shape = next(
+        s
+        for slide in prs.slides
+        for s in slide.shapes
+        if s.has_text_frame and "Line one" in s.text_frame.text
+    )
+    paragraphs = shape.text_frame.paragraphs
+    assert len(paragraphs) == 3
+    for p in paragraphs:
+        assert p.font.color.rgb == RGBColor.from_string("1A2332")
 
 
 def test_cli_validate_smoke(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

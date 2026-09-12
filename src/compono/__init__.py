@@ -4,6 +4,7 @@ Public exports ONLY (COMPONO_PLAN.md section 10) — resolver/validator/template
 loader stay internal, reached only through render_deck/validate.
 """
 
+from compono.inspire import SkillFiles, aggregate, scan_deck, write_skill
 from compono.reference import reference
 from compono.render import (
     DeckValidationError,
@@ -38,13 +39,17 @@ __all__ = [
     "ReviewReport",
     "Sequence",
     "Shape",
+    "SkillFiles",
     "Slide",
     "Stat",
     "Table",
     "Text",
     "ValidationReport",
+    "aggregate",
     "reference",
     "render_deck",
     "review",
+    "scan_deck",
     "validate",
+    "write_skill",
 ]

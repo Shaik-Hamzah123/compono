@@ -531,12 +531,17 @@ def _render_shape(
         tf.word_wrap = True
         tf.text = shape.text.content
         tf.vertical_anchor = _VALIGN_TO_MSO[shape.text.valign]
-        tf.paragraphs[0].font.name = template.font_family
-        if shape.text.color:
-            tf.paragraphs[0].font.color.rgb = RGBColor.from_string(
-                shape.text.color.lstrip("#")
-            )
-        tf.paragraphs[0].alignment = _ALIGN_TO_PP[shape.text.align]
+        # shape.text.content may contain embedded "\n"s, which python-pptx's
+        # text_frame.text setter splits into multiple paragraphs — every one
+        # of them needs the same font/color/alignment, not just paragraphs[0]
+        # (a bug once left every line after the first in the theme default).
+        for paragraph in tf.paragraphs:
+            paragraph.font.name = template.font_family
+            if shape.text.color:
+                paragraph.font.color.rgb = RGBColor.from_string(
+                    shape.text.color.lstrip("#")
+                )
+            paragraph.alignment = _ALIGN_TO_PP[shape.text.align]
 
 
 def _render_footer(

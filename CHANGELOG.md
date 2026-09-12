@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-12
+
+### Added
+- `compono.inspire`: `scan_deck(path)`, `aggregate(paths, *,
+  min_repeat_ratio=0.5)`, and `write_skill(profile, out_dir, *, name)` —
+  scan a folder of `.pptx` files someone already likes into a
+  structural/style profile (palette, fonts, spacing, grid patterns with
+  a confidence score) and package it as a `skills/inspire-<name>/`
+  folder (`SKILL.md` + `profile.json`) an agent can read before
+  generating a *new* deck, so it adopts similar practices loosely
+  rather than copying any source deck literally. Hard invariant: never
+  serializes a scanned deck's literal text or image bytes into the
+  profile — only measurable structure. `aggregate()` separates a
+  recurring practice (seen in at least `min_repeat_ratio` of the
+  scanned decks) from a one-off quirk, weighted per-deck (not per-slide
+  or per-shape) so a many-slide deck can't dominate an aggregate of
+  otherwise-small decks. A low-confidence grid detection is omitted
+  entirely rather than reported as a guess.
+- `compono inspire scan <folder> -o <out_dir> [--name NAME]
+  [--min-repeat-ratio R]` CLI subcommand wrapping `aggregate` +
+  `write_skill`; a `.pptx` file that fails to open is skipped with a
+  warning, not a crash.
+
+### Fixed
+- `shape.text.content` with embedded `\n`s (a multi-line label, e.g.
+  `"Track 1\nAI Foundations"`) only applied `font_family`/`color`/`align`
+  to the first line — python-pptx's `text_frame.text` setter splits on
+  `\n` into separate paragraphs, and only `paragraphs[0]` was being
+  formatted. Every line after the first silently fell back to the theme
+  default (visibly wrong text color on multi-line shape cards). Found via
+  a real end-to-end test (Inspire-informed proposal deck with 4-line
+  shape cards), fixed by applying font/color/alignment to every
+  paragraph in the text frame.
+- `review()`'s whitespace check flagged a lone top-level `grid` with
+  several children (a card grid, a stat row) as "empty space", even
+  though that's a deliberate, already-full layout — the check only
+  looked at `len(slide.body) == 1`, not whether that one item already
+  fans out into multiple children. Found on the same real deck: 13 of 14
+  slides were false-positively flagged before the fix, 3 genuinely sparse
+  slides after it.
+
+### Known limitations (new)
+- Grid detection is a naive geometric heuristic (row-clustering by
+  y-position, near-equal widths, evenly spaced gaps) — reliable against
+  clean/grid-based layouts (including anything `compono` itself
+  rendered), noisier against genuinely irregular hand-authored decks.
+  "No confident pattern found" is a valid, expected outcome there, not
+  a bug.
+- `SKILL.md`'s prose is templated directly from the structural facts,
+  not an LLM-generated summary — it can only state what the numbers
+  support (no visual-density judgment from an actually rendered slide).
+- Not yet exposed as an MCP tool in `compono-mcp` — it's a
+  filesystem-scanning verb, a different shape from that server's
+  spec-in/spec-out tools.
+
 ## [0.1.7] - 2026-09-12
 
 ### Fixed

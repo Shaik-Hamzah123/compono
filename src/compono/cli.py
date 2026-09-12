@@ -4,6 +4,7 @@ compono validate spec.json
 compono review spec.json
 compono render spec.json --template modern -o deck.pptx
 compono reference
+compono inspire scan decks/ -o skills/inspire-myteam/
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import json
 import sys
 from pathlib import Path
 
+from compono.inspire import aggregate, write_skill
 from compono.reference import reference
 from compono.render import DeckValidationError, render_deck, validate
 from compono.resolver import Template
@@ -60,6 +62,32 @@ def main(argv: list[str] | None = None) -> int:
             "Template name under templates/ (e.g. 'default', 'modern'). "
             "Overrides the spec's own `template` field if both are given."
         ),
+    )
+
+    inspire_parser = subparsers.add_parser(
+        "inspire", help="Scan liked decks into a style profile/skill."
+    )
+    inspire_subparsers = inspire_parser.add_subparsers(
+        dest="inspire_command", required=True
+    )
+    scan_parser = inspire_subparsers.add_parser(
+        "scan", help="Scan a folder of .pptx files into skills/inspire-<name>/."
+    )
+    scan_parser.add_argument("folder", help="Folder containing .pptx files to scan.")
+    scan_parser.add_argument(
+        "-o",
+        "--output",
+        required=True,
+        help="Output folder for SKILL.md + profile.json.",
+    )
+    scan_parser.add_argument(
+        "--name", default="custom", help="Name used in SKILL.md's frontmatter."
+    )
+    scan_parser.add_argument(
+        "--min-repeat-ratio",
+        type=float,
+        default=0.5,
+        help="Fraction of decks a fact must appear in to count as recurring.",
     )
 
     args = parser.parse_args(argv)
@@ -127,6 +155,29 @@ def main(argv: list[str] | None = None) -> int:
                 {
                     "pptx_path": str(render_report.pptx_path),
                     "warnings": render_report.warnings,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "inspire" and args.inspire_command == "scan":
+        pptx_paths = sorted(Path(args.folder).glob("*.pptx"))
+        if not pptx_paths:
+            print(
+                json.dumps({"error": f"No .pptx files found under {args.folder!r}."}),
+                file=sys.stderr,
+            )
+            return 1
+        profile = aggregate(pptx_paths, min_repeat_ratio=args.min_repeat_ratio)
+        files = write_skill(profile, args.output, name=args.name)
+        print(
+            json.dumps(
+                {
+                    "skill_md": str(files.skill_md),
+                    "profile_json": str(files.profile_json),
+                    "n_decks_scanned": profile["n_example_decks"],
+                    "warnings": profile["warnings"],
                 },
                 indent=2,
             )

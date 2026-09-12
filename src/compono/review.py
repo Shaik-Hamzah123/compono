@@ -15,10 +15,12 @@ validate()'s structured errors):
   - whitespace: a body slide whose single top-level primitive leaves a lot
     of a tall box empty. Header-only slides (no body at all) are a
     deliberate pattern (title/closing slides) and are never flagged —
-    there's nothing to be "too empty" relative to. Uses
-    `LayoutResult.parents` (not an id-string-prefix guess) to tell a
-    top-level body item from a nested grid child, per this repo's own
-    containment-check convention.
+    there's nothing to be "too empty" relative to. A lone top-level `grid`
+    with more than one child is also never flagged — it's a deliberate,
+    already-full layout (a card grid, a stat row), not empty space, even
+    though it's the single item in `slide.body`. Uses `LayoutResult.parents`
+    (not an id-string-prefix guess) to tell a top-level body item from a
+    nested grid child, per this repo's own containment-check convention.
   - image_fit: a real image (not a placeholder) whose aspect ratio is far
     from its box's, under fit="cover" (crops a lot) or fit="contain"
     (leaves large empty bars).
@@ -47,7 +49,7 @@ from compono.render import (
     resolve_deck_template,
 )
 from compono.resolver import LayoutResult, Rect, Template, resolve_slide
-from compono.schema import Deck, Image, Shape
+from compono.schema import Deck, Grid, Image, Shape
 from compono.validator import check_overflow, load_font_metrics
 
 # WCAG 2.1 AA for normal-size text. Not configurable — a fixed, well-known bar.
@@ -239,9 +241,19 @@ def review(
             for item_id, primitive in layout.items.items()
             if primitive is not slide.header and item_id not in layout.parents
         ]
+        # A lone top-level `grid` with several children is a deliberate,
+        # already-full layout (a card grid, a stat row) — not empty space —
+        # even though it's the single item in slide.body. Only a genuinely
+        # single leaf primitive alone in a tall box should ever be flagged.
+        sole_body_item = slide.body[0] if len(slide.body) == 1 else None
+        is_dense_grid = (
+            isinstance(sole_body_item, Grid) and len(sole_body_item.items) > 1
+        )
         lone_top_level_id = (
             top_level_body_ids[0]
-            if len(slide.body) == 1 and len(top_level_body_ids) == 1
+            if len(slide.body) == 1
+            and len(top_level_body_ids) == 1
+            and not is_dense_grid
             else None
         )
 

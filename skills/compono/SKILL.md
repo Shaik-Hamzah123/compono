@@ -353,6 +353,19 @@ the template's chosen typeface (known limitation). A bundled, OFL-licensed
 safe-font list is planned before the first tagged release; this section
 will list it once shipped.
 
+## Inspire
+
+`scan_deck`/`aggregate`/`write_skill` (also `compono.inspire`) scan a
+folder of `.pptx` files someone already likes into a style
+profile/skill — palette, fonts, spacing, grid patterns — **never**
+literal text or images. Aggregating across multiple decks separates a
+recurring practice (seen in most decks) from a one-off quirk; low-
+confidence grid patterns are omitted rather than guessed. The result is
+a `skills/inspire-<name>/{SKILL.md, profile.json}` folder an agent can
+read before generating a *new* deck, so it adopts similar practices
+loosely rather than copying any source deck literally. See
+`docs/inspire.md` for the full write-up.
+
 ## CLI
 
 ```bash
@@ -360,9 +373,10 @@ compono validate spec.json
 compono review spec.json
 compono render spec.json --template modern -o deck.pptx
 compono reference
+compono inspire scan decks/ -o skills/inspire-myteam/
 ```
 
-Mirrors `validate`/`review`/`render_deck` exactly — useful when you can
-only shell out rather than import Python. `reference` prints this same
-document to stdout — useful if this skill isn't loaded and there's no MCP
-connection either.
+Mirrors `validate`/`review`/`render_deck`/`inspire` exactly — useful when
+you can only shell out rather than import Python. `reference` prints this
+same document to stdout — useful if this skill isn't loaded and there's
+no MCP connection either.

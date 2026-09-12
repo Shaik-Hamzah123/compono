@@ -110,6 +110,41 @@ def test_review_does_not_flag_whitespace_for_a_multi_item_body() -> None:
     assert [s for s in report.suggestions if s["category"] == "whitespace"] == []
 
 
+def test_review_does_not_flag_whitespace_for_a_lone_but_dense_grid() -> None:
+    """A single top-level `grid` with several children (a card grid, a stat
+    row) is a deliberate, already-full layout — not empty space — even
+    though it's the only item in `slide.body`. Regression test: this used
+    to be flagged because the whitespace check only looked at
+    len(slide.body) == 1, not whether that one item already fans out into
+    multiple children.
+    """
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Program at a Glance"},
+                "body": [
+                    {
+                        "primitive": "grid",
+                        "columns": 4,
+                        "items": [
+                            {"primitive": "stat", "value": "8", "label": "sessions"},
+                            {"primitive": "stat", "value": "4", "label": "labs"},
+                            {"primitive": "stat", "value": "1", "label": "channel"},
+                            {
+                                "primitive": "stat",
+                                "value": "100+",
+                                "label": "templates",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    report = review(spec)
+    assert [s for s in report.suggestions if s["category"] == "whitespace"] == []
+
+
 def test_review_flags_text_close_to_overflowing_but_not_yet_over() -> None:
     """A proactive nudge distinct from validate()'s hard overflow error —
     same underlying check_overflow, a softer threshold.

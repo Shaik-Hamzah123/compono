@@ -324,3 +324,15 @@ rendering required. As of this release, no font is bundled yet; validation
 falls back to a system font if one is found, and is skipped — not faked —
 with a warning if none is available. This is independent of `font_family`
 — overflow metrics don't yet reflect the template's chosen typeface.
+
+## Inspire (not yet an MCP tool)
+
+Core `compono` also ships `scan_deck`/`aggregate`/`write_skill`
+(`compono.inspire`): scan a folder of `.pptx` files someone already likes
+into a style profile/skill — palette, fonts, spacing, grid patterns,
+never literal text or images — for an agent to adopt loosely on new
+decks. This isn't exposed as an MCP tool yet (it's a filesystem-scanning
+verb, a different shape from `validate_deck`/`review_deck`/
+`render_deck_tool`'s spec-in/spec-out pattern) — an MCP client that needs
+it today should shell out to `compono inspire scan` directly. See
+`docs/inspire.md` in the main repo for the full write-up.

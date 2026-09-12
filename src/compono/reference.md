@@ -339,6 +339,19 @@ falls back to a system font if one is found, and is skipped — not faked —
 with a warning if none is available. This is independent of `font_family`
 — overflow metrics don't yet reflect the template's chosen typeface.
 
+## Inspire
+
+`scan_deck`/`aggregate`/`write_skill` (also `compono.inspire`) scan a
+folder of `.pptx` files someone already likes into a style
+profile/skill — palette, fonts, spacing, grid patterns — **never**
+literal text or images. Aggregating across multiple decks separates a
+recurring practice (seen in most decks) from a one-off quirk; low-
+confidence grid patterns are omitted rather than guessed. The result is
+a `skills/inspire-<name>/{SKILL.md, profile.json}` folder an agent can
+read before generating a *new* deck, so it adopts similar practices
+loosely rather than copying any source deck literally. See
+`docs/inspire.md` for the full write-up.
+
 ## CLI
 
 ```bash
@@ -346,8 +359,9 @@ compono validate spec.json
 compono review spec.json
 compono render spec.json --template modern -o deck.pptx
 compono reference
+compono inspire scan decks/ -o skills/inspire-myteam/
 ```
 
-Mirrors `validate`/`review`/`render_deck`/`reference` exactly — useful when
-shell access is available but importing Python isn't (or as a quick check
-without writing a script).
+Mirrors `validate`/`review`/`render_deck`/`reference`/`inspire` exactly —
+useful when shell access is available but importing Python isn't (or as
+a quick check without writing a script).
