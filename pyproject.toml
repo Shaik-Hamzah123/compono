@@ -26,10 +26,11 @@ build-backend = "uv_build"
 
 [tool.uv.workspace]
 members = ["packages/*"]
-# compono-js is a TypeScript/npm package (its own package.json), not a uv
-# workspace member — exclude it explicitly since uv's glob otherwise
-# errors on a packages/* directory with no pyproject.toml.
-exclude = ["packages/compono-js"]
+# compono-js and compono-js-mcp are TypeScript/npm packages (their own
+# package.json), not uv workspace members — exclude them explicitly since
+# uv's glob otherwise errors on a packages/* directory with no
+# pyproject.toml.
+exclude = ["packages/compono-js", "packages/compono-js-mcp"]
 
 [dependency-groups]
 dev = [

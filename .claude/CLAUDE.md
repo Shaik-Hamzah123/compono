@@ -159,21 +159,36 @@ object" invariant below: `chart` is rasterized via matplotlib (no native
 Word chart API exists in `python-docx`) — every other docx primitive is a
 genuine python-docx object. See `docs/docx.md` for the full write-up.
 
-### compono-js (a separate, parallel package — not Python)
+### compono-js / compono-js-mcp (separate, parallel packages — not Python)
 
-`packages/compono-js/` is a TypeScript port of the pptx pipeline above
-(schema → resolver → validator → render), rendering via `pptxgenjs`
-instead of `python-pptx` — for agent harnesses that write/call JS rather
-than Python. Same primitive-JSON contract, same structured error shape,
-independent implementation and version (own `package.json`, own
-`CHANGELOG.md`, published to npm separately from PyPI's `compono`/
-`compono-mcp`). **Not** a `uv` workspace member — the root
-`pyproject.toml`'s `[tool.uv.workspace]` explicitly excludes it, since
-it has no `pyproject.toml` and uv's `packages/*` glob otherwise errors
-on a non-Python directory. A change to the pptx primitive catalog or
-resolver algorithm is a candidate to port over here too, but the two
+`packages/compono-js/` is a TypeScript port of compono core (schema →
+resolver → validator → render, `review()`, Inspire, DOCX generation) —
+pptx via `pptxgenjs` instead of `python-pptx`, docx via the `docx` npm
+package instead of `python-docx`, chart rasterization via
+`chartjs-node-canvas` instead of matplotlib, Inspire's deck-*reading* via
+direct OOXML parsing (`jszip` + `fast-xml-parser`) since no npm package
+offers python-pptx's read-side object model. Same primitive-JSON
+contracts, same structured error shapes, independent implementation and
+version (own `package.json`, own `CHANGELOG.md`, published to npm
+separately from PyPI). `packages/compono-js-mcp/` is its MCP server, the
+TypeScript counterpart to `compono-mcp` (same 6 tools, same
+`compono://reference` resource, via `@modelcontextprotocol/sdk` instead
+of `fastmcp`) — it depends on `compono-js` via a `file:../compono-js`
+dependency in dev, a real published version range at publish time.
+
+Neither is a `uv` workspace member — the root `pyproject.toml`'s
+`[tool.uv.workspace]` explicitly excludes both, since neither has a
+`pyproject.toml` and uv's `packages/*` glob otherwise errors on a non-
+Python directory. A change to a pptx/docx primitive or algorithm on the
+Python side is a candidate to port over here too, but the two
 implementations are not required to stay in lockstep release-to-release
 — check `packages/compono-js/README.md` for what's currently ported.
+Real bugs surfaced *by* the port (not hypothetical) so far: a shape-with-
+text drew as two stacked shapes instead of one (broke Inspire's grid
+detection when scanning compono-js's own output), a docx table defaulted
+to an invisible ~100-twip width, and docx hyperlink runs rendered
+invisible without explicit color/underline styling — all with regression
+tests.
 
 ### Adding a new primitive
 

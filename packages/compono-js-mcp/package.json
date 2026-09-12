@@ -1,0 +1,34 @@
+{
+  "name": "@skhamzah123/compono-js-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing compono-js's renderDeck/validate/review/inspire/docx as MCP tools.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Shaik-Hamzah123 <hamzah.shaik2003@gmail.com>",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/index.js",
+  "bin": {
+    "compono-js-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "reference.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@skhamzah123/compono-js": "file:../compono-js",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.2"
+  }
+}

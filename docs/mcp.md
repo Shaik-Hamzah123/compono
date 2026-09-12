@@ -25,6 +25,20 @@ profile/skill), and a `compono://reference` resource carrying the full
 agent-facing reference doc, for clients without Claude Code's skill
 system.
 
+Building a JS/TS agent harness instead of a Python one?
+[`compono-js-mcp`](https://www.npmjs.com/package/@skhamzah123/compono-js-mcp)
+is the TypeScript counterpart — same six tools, same `compono://reference`
+resource, backed by [`compono-js`](https://www.npmjs.com/package/@skhamzah123/compono-js)
+instead of Python `compono`.
+
+```bash
+npm install @skhamzah123/compono-js-mcp
+```
+
+```json
+{ "mcpServers": { "compono-js": { "command": "npx", "args": ["-y", "@skhamzah123/compono-js-mcp"] } } }
+```
+
 ### When compono has no context
 
 Two channels put this reference in front of an agent automatically:
