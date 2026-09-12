@@ -14,7 +14,7 @@ from compono import (
 |---|---|---|
 | `render_deck` | `render_deck(spec, output_path, *, template=None) -> RenderReport` | Validates, resolves layout, writes a real `.pptx`. Raises `DeckValidationError` on any error — nothing is written on failure. |
 | `validate` | `validate(spec, *, template=None) -> ValidationReport` | Schema + layout + text-overflow checks. No file I/O. Never raises — check `.valid`/`.errors`. |
-| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow). Never blocking — no valid/invalid, only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
+| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow, style). Never blocking — no valid/invalid, only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
 | `reference` | `reference() -> str` | The full agent-facing reference doc (this file's content), packaged inside `compono` itself — for an agent with only shell/code-exec access, no MCP connection or Claude Code skill loaded. Also `compono reference` on the CLI. |
 | `DeckValidationError` | `exc.errors -> list[dict]` | The one exception type. Carries the structured error list below. |
 
@@ -127,5 +127,6 @@ Four categories today:
 | `whitespace` | A body of exactly one primitive left alone in a tall box | Nothing — but **never fires on a header-only slide** (no `body` at all). A title/closing slide being sparse is the deliberate pattern that fix shipped in 0.1.1; there's nothing to be "too empty" relative to. |
 | `image_fit` | A real image (not a placeholder) whose aspect ratio diverges a lot from its box, under `fit="cover"` (crops) or `fit="contain"` (large empty bars) | A real `src`, not a placeholder — nothing to measure otherwise. |
 | `font_size` | Text using most of its box's height without (yet) overflowing | A font (same fallback as overflow validation) — skipped, not faked, otherwise. |
+| `style` | An em dash (—) in any text-bearing field | Nothing — purely a text-content scan, runs even when overflow/font-size checks are skipped for lack of a font. Narrow by design: just the one character, not a broader "AI writing tell" pass. |
 
 

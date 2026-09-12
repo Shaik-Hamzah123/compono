@@ -2,6 +2,7 @@
 
 import pytest
 
+from compono.resolver import _CONNECTOR_GAP_EMU as GAP
 from compono.resolver import (
     DEFAULT_TEMPLATE_PATH,
     Rect,
@@ -167,8 +168,8 @@ def test_connector_resolves_start_and_end_points(template: Template) -> None:
     # box-a sits above box-b (stacked vertically, same width) — the connector
     # must join their *edges* (a's bottom, b's top), never their centers,
     # since a center-to-center line would cut across any text inside either.
-    assert connector.start == (a.x + a.w // 2, a.y + a.h)
-    assert connector.end == (b.x + b.w // 2, b.y)
+    assert connector.start == (round(a.x + a.w / 2), a.y + a.h + GAP)
+    assert connector.end == (round(b.x + b.w / 2), b.y - GAP)
 
 
 def test_connector_between_side_by_side_shapes_joins_vertical_edges(
@@ -194,8 +195,8 @@ def test_connector_between_side_by_side_shapes_joins_vertical_edges(
     left, right = result.rects["left-box"], result.rects["right-box"]
     connector = result.connectors["connector[left-box->right-box]"]
 
-    assert connector.start == (left.x + left.w, left.y + left.h // 2)
-    assert connector.end == (right.x, right.y + right.h // 2)
+    assert connector.start == (left.x + left.w + GAP, left.y + left.h // 2)
+    assert connector.end == (right.x - GAP, right.y + right.h // 2)
 
 
 def test_connector_shapes_do_not_consume_a_body_slot(template: Template) -> None:

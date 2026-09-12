@@ -64,7 +64,7 @@ compono render spec.json -o deck.pptx
   and `validate(spec)` are the core loop — `validate` is cheap, no pptx
   write, millisecond-scale, so iterate on a spec before paying render cost.
   `review(spec)` is a separate, never-blocking third verb for design-quality
-  suggestions (contrast, whitespace, image fit) — pair it with the other
+  suggestions (contrast, whitespace, image fit, style) — pair it with the other
   two, it doesn't replace either.
 - **A spec is plain data.** A raw `dict`/JSON (what tool-calling naturally
   produces) is all you need — pass it straight to `render_deck`/`validate`.
@@ -95,7 +95,7 @@ from compono import (
 |---|---|---|
 | `render_deck` | `render_deck(spec, output_path, *, template=None) -> RenderReport` | Validates, resolves layout, writes a real `.pptx`. Raises `DeckValidationError` on any error — nothing is written on failure. |
 | `validate` | `validate(spec, *, template=None) -> ValidationReport` | Schema + layout + text-overflow checks. No file I/O. Never raises — check `.valid`/`.errors`. |
-| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow). Never blocking — only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
+| `review` | `review(spec, *, template=None) -> ReviewReport` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow, style). Never blocking — only `.suggestions` (possibly empty) and `.warnings`. Complements `validate`, doesn't replace it. |
 | `reference` | `reference() -> str` | The full agent-facing reference doc, packaged inside `compono` itself — also `compono reference` on the CLI. |
 | `DeckValidationError` | `exc.errors -> list[dict]` | The one exception type. Carries the structured error list below. |
 
@@ -211,6 +211,7 @@ Four categories today:
 | `whitespace` | A body of exactly one primitive left alone in a tall box | Nothing — but **never fires on a header-only slide** (no `body` at all). A title/closing slide being sparse is the deliberate pattern that fix shipped in 0.1.1; there's nothing to be "too empty" relative to. |
 | `image_fit` | A real image (not a placeholder) whose aspect ratio diverges a lot from its box, under `fit="cover"` (crops) or `fit="contain"` (large empty bars) | A real `src`, not a placeholder — nothing to measure otherwise. |
 | `font_size` | Text using most of its box's height without (yet) overflowing | A font (same fallback as overflow validation) — skipped, not faked, otherwise. |
+| `style` | An em dash (—) in any text-bearing field | Nothing — purely a text-content scan, runs even when overflow/font-size checks are skipped for lack of a font. Narrow by design: just the one character, not a broader "AI writing tell" pass. |
 
 ## Primitive catalog
 
@@ -231,7 +232,7 @@ make by composing primitives, not a schema type to pick.
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. Set `text.color` explicitly against a dark `fill` — `review()`'s contrast check can only evaluate it when both are given. |
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id` (routes around any box in between automatically, ends in an arrowhead, and stops just short of the shape rather than touching it). Set `text.color` explicitly against a dark `fill` — `review()`'s contrast check can only evaluate it when both are given. |
 
 Every schema field's description is written as an instruction (e.g. "Keep
 under ~60 characters — longer titles will be shrunk by the resolver"), not

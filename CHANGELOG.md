@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-12
+
+### Fixed
+- Connector routing (`shape.kind="connector"`) could draw a straight line
+  right through an unrelated shape's label whenever the two connected
+  shapes weren't directly adjacent (e.g. a fan-out/fan-in diagram, or any
+  connection skipping over a box in between). `resolver.py` now checks
+  whether the direct edge-to-edge line would cross any other resolved box
+  and, if so, routes an orthogonal detour through empty gutter space
+  around it instead — purely geometric (uses only resolved rects, no
+  spec-specific assumptions), so it applies to any layout. Found via a
+  hands-on visual stress test rendering a 10-shape/11-connector
+  architecture-diagram deck to PNG, not by reading the code.
+
+### Added
+- Connectors (`shape.kind="connector"`) and the `"arrow"` line-shape kind
+  now render with a real arrowhead at the target end, instead of a bare
+  line with no indication of direction.
+- A small visual gap (4pt) between a connector's endpoint and the shape it
+  connects to, instead of touching the shape's edge flush — the more
+  common diagram convention.
+- `review()` gains a fifth suggestion category, `style`: flags an em dash
+  (`—`) in any text-bearing field and proposes the mechanical fix (a plain
+  hyphen). Narrow and precise by design — just the one character, not a
+  broader "AI writing tell" pass — since many readers flag em dashes
+  specifically as a sign of AI-generated text.
+
 ## [0.1.6] - 2026-09-12
 
 ### Changed

@@ -53,7 +53,7 @@ compono render spec.json -o deck.pptx
   and `validate(spec)` are the core loop — `validate` is cheap, no pptx
   write, millisecond-scale, so an agent can iterate on a spec before paying
   render cost. `review(spec)` is a separate, never-blocking third verb for
-  design-quality suggestions (contrast, whitespace, image fit) — pair it
+  design-quality suggestions (contrast, whitespace, image fit, style) — pair it
   with the other two, it doesn't replace either.
 - **A spec is plain data.** Either a raw `dict`/JSON (what an agent's
   tool-calling naturally produces) or the typed builder classes

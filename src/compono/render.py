@@ -23,6 +23,7 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.enum.dml import MSO_LINE_DASH_STYLE
 from pptx.enum.shapes import MSO_CONNECTOR, MSO_SHAPE
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.oxml.ns import qn
 from pptx.util import Emu, Pt
 from pydantic import ValidationError
 from pydantic_core import ErrorDetails
@@ -494,16 +495,17 @@ def _apply_shape_gradient(sp: Any, hex_color: str) -> None:
 def _render_shape(
     pptx_slide: Any, shape: Shape, rect: Rect, template: Template
 ) -> None:
-    # "line"/"arrow" render as a straight connector across the shape's own rect;
-    # arrowhead styling is a known gap, left for a follow-up once needed.
+    # "line"/"arrow" render as a straight connector across the shape's own rect.
     if shape.kind in ("line", "arrow"):
-        pptx_slide.shapes.add_connector(
+        connector = pptx_slide.shapes.add_connector(
             MSO_CONNECTOR.STRAIGHT,
             Emu(rect.x),
             Emu(rect.y),
             Emu(rect.x + rect.w),
             Emu(rect.y + rect.h),
         )
+        if shape.kind == "arrow":
+            _add_arrowhead(connector)
         return
 
     mso_shape = _SHAPE_KIND_TO_MSO.get(shape.kind, MSO_SHAPE.RECTANGLE)
@@ -560,10 +562,29 @@ def _render_footer(
 
 
 def _render_connector(pptx_slide: Any, points: ConnectorPoints) -> None:
-    x1, y1 = points.start
-    x2, y2 = points.end
-    pptx_slide.shapes.add_connector(
-        MSO_CONNECTOR.STRAIGHT, Emu(x1), Emu(y1), Emu(x2), Emu(y2)
+    """Draw one straight segment per consecutive point pair — a direct
+    connector is just (start, end); one routed around an obstacle also has
+    `waypoints` bends in between. An arrowhead on the final segment's end
+    shows the relationship's direction, which a bare line otherwise doesn't.
+    """
+    path = [points.start, *points.waypoints, points.end]
+    last_index = len(path) - 2
+    for i, ((x1, y1), (x2, y2)) in enumerate(pairwise(path)):
+        connector = pptx_slide.shapes.add_connector(
+            MSO_CONNECTOR.STRAIGHT, Emu(x1), Emu(y1), Emu(x2), Emu(y2)
+        )
+        if i == last_index:
+            _add_arrowhead(connector)
+
+
+def _add_arrowhead(connector: Any) -> None:
+    """python-pptx's LineFormat has no high-level arrowhead API — this is
+    the minimal raw-XML equivalent of PowerPoint's own "Arrow" line-end
+    style.
+    """
+    ln = connector.line._get_or_add_ln()
+    ln.append(
+        ln.makeelement(qn("a:tailEnd"), {"type": "triangle", "w": "med", "len": "med"})
     )
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "compono"
-version = "0.1.6"
+version = "0.1.7"
 description = "Agent-oriented, code-based PPTX generation library — typed primitives, no raw coordinates."
 readme = "README.md"
 license = "MIT"

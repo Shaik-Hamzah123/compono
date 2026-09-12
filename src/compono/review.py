@@ -25,10 +25,15 @@ validate()'s structured errors):
   - font_size: text using most of its box's height without technically
     overflowing — a proactive nudge before it becomes a hard validate()
     error, not a duplicate of it.
+  - style: an em dash (—) in any text-bearing field — a purely
+    mechanical, narrow check (no broader "AI writing tell" pass), since
+    many readers flag em dashes as a sign of AI-generated text and the fix
+    is unambiguous.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -57,6 +62,7 @@ _IMAGE_ASPECT_TOLERANCE = 0.35
 # Text using more than this fraction of its box's height is "cutting it
 # close" even though it doesn't (yet) overflow.
 _TIGHT_FIT_FRACTION = 0.85
+_EM_DASH = "—"
 
 
 @dataclass
@@ -124,6 +130,28 @@ def _check_contrast(
         f"has a contrast ratio of ~{ratio:.1f}:1 (WCAG AA wants {_MIN_CONTRAST_RATIO}:1).",
         "Pick a lighter/darker text.color for more contrast against fill, "
         "or use a lighter/darker fill.",
+    )
+
+
+def _em_dash_fix(text: str) -> str:
+    """Mechanical replacement: an em dash (optionally already spaced on
+    either side) becomes a plain, spaced hyphen."""
+    return re.sub(rf"\s*{_EM_DASH}\s*", " - ", text).strip()
+
+
+def _check_style(
+    slide_index: int, item_id: str, field_name: str, text: str
+) -> dict[str, Any] | None:
+    if _EM_DASH not in text:
+        return None
+    return _suggestion(
+        slide_index,
+        item_id,
+        field_name,
+        "style",
+        f"{field_name!r} contains an em dash ({_EM_DASH!r}); many readers "
+        "flag em dashes as a sign of AI-generated text.",
+        f"Replace with a plain hyphen: {text!r} -> {_em_dash_fix(text)!r}",
     )
 
 
@@ -239,11 +267,20 @@ def review(
             if s:
                 suggestions.append(s)
 
+            text_fields = list(_extract_text_fields(primitive))
+
+            # Style checks are pure text-content scans — no font metrics
+            # needed, so they run even when overflow checking is skipped.
+            for field_name, text, _font_size_pt in text_fields:
+                s = _check_style(slide_index, item_id, field_name, text)
+                if s:
+                    suggestions.append(s)
+
             if font_metrics is None:
                 skipped_font_check = True
                 continue
 
-            for field_name, text, font_size_pt in _extract_text_fields(primitive):
+            for field_name, text, font_size_pt in text_fields:
                 report = check_overflow(
                     text,
                     font_metrics,

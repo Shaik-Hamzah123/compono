@@ -63,7 +63,7 @@ the identical `spec` shape instead of importing Python directly.
   and `validate(spec)` are the core loop — `validate` is cheap, no pptx
   write, millisecond-scale, so iterate on a spec before paying render cost.
   `review(spec)` is a separate, never-blocking third verb for design-quality
-  suggestions (contrast, whitespace, image fit) — pair it with the other
+  suggestions (contrast, whitespace, image fit, style) — pair it with the other
   two, it doesn't replace either.
 - **A spec is plain data.** A raw `dict`/JSON (what tool-calling naturally
   produces) is all you need — pass it straight to `render_deck`/`validate`.
@@ -83,7 +83,7 @@ the identical `spec` shape instead of importing Python directly.
 | Tool | Input | Output | Notes |
 |---|---|---|---|
 | `validate_deck` | `spec: object` | `{valid, errors, warnings}` | No file write. Never errors out on malformed input — `valid: false` with structured errors instead. |
-| `review_deck` | `spec: object` | `{suggestions, warnings}` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow) — never blocking, no valid/invalid, `suggestions` may be empty. Complements `validate_deck`, doesn't replace it. |
+| `review_deck` | `spec: object` | `{suggestions, warnings}` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow, style) — never blocking, no valid/invalid, `suggestions` may be empty. Complements `validate_deck`, doesn't replace it. |
 | `render_deck_tool` | `spec: object, output_path: string` | `{pptx_path, manifest, warnings}` on success, or `{valid: false, errors}` on failure | Writes a real `.pptx` at `output_path` on the machine running this server. |
 
 A `spec` (a `Deck`) is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
@@ -198,6 +198,7 @@ Four categories today:
 | `whitespace` | A body of exactly one primitive left alone in a tall box | Nothing — but **never fires on a header-only slide** (no `body` at all). A title/closing slide being sparse is the deliberate pattern that fix shipped in 0.1.1; there's nothing to be "too empty" relative to. |
 | `image_fit` | A real image (not a placeholder) whose aspect ratio diverges a lot from its box, under `fit="cover"` (crops) or `fit="contain"` (large empty bars) | A real `src`, not a placeholder — nothing to measure otherwise. |
 | `font_size` | Text using most of its box's height without (yet) overflowing | A font (same fallback as overflow validation) — skipped, not faked, otherwise. |
+| `style` | An em dash (—) in any text-bearing field | Nothing — purely a text-content scan, runs even when overflow/font-size checks are skipped for lack of a font. Narrow by design: just the one character, not a broader "AI writing tell" pass. |
 
 ## Primitive catalog
 
@@ -218,7 +219,7 @@ make by composing primitives, not a schema type to pick.
 | `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
-| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id`. Set `text.color` explicitly against a dark `fill` — `review_deck`'s contrast check can only evaluate it when both are given. |
+| `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id` (routes around any box in between automatically, ends in an arrowhead, and stops just short of the shape rather than touching it). Set `text.color` explicitly against a dark `fill` — `review_deck`'s contrast check can only evaluate it when both are given. |
 
 ### Image placeholders
 

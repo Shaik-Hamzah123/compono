@@ -35,8 +35,8 @@ compono removes coordinates from the agent's job entirely:
   no file write. Bad specs get a structured `{slide, primitive, field,
   error, detail, fix}` back, not a broken `.pptx` or a stack trace.
 - **A design-quality pass, still optional.** `review(spec)` — contrast,
-  whitespace, image-fit, font-size-near-overflow — flags things a human
-  designer would notice that "renders successfully" doesn't catch.
+  whitespace, image-fit, font-size-near-overflow, style — flags things a
+  human designer would notice that "renders successfully" doesn't catch.
 - **Nothing is ever a flattened image.** Every primitive is a real,
   editable OOXML shape or graphicFrame. A generated table is a real table;
   a generated chart has live, editable series data. Open the file and it's
