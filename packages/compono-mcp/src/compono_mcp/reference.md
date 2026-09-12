@@ -339,3 +339,13 @@ rather than a one-off quirk. Returns `{skill_md, profile_json,
 n_decks_scanned, warnings}`; a `.pptx` that fails to open is skipped and
 named in `warnings`, never raised. See `docs/inspire.md` in the main repo
 for the full write-up.
+
+## DOCX (not yet an MCP tool)
+
+`compono` core also generates `.docx` documents (`render_docx`/
+`validate_docx`, `compono.docx`) — its second output format, for linear
+content rather than slides, with its own primitive set (`heading`,
+`paragraph`, `bullet_list`, `numbered_list`, `table`, `image`, `chart`,
+`page_break`). Not yet exposed through this MCP server — only reachable
+today via `compono`'s Python API or `compono docx validate`/`compono docx
+render` CLI. See `docs/docx.md` in the main repo for the full write-up.

@@ -1,7 +1,7 @@
 [project]
 name = "compono"
-version = "0.1.8"
-description = "Agent-oriented, code-based PPTX generation library — typed primitives, no raw coordinates."
+version = "0.2.0"
+description = "Agent-oriented, code-based PPTX/DOCX generation library — typed primitives, no raw coordinates."
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -10,7 +10,9 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "fonttools>=4.65.0",
+    "matplotlib>=3.11.2",
     "pydantic>=2.13.5",
+    "python-docx>=1.2.0",
     "python-pptx>=1.0.2",
     "pyyaml>=6.0.3",
 ]

@@ -352,6 +352,20 @@ read before generating a *new* deck, so it adopts similar practices
 loosely rather than copying any source deck literally. See
 `docs/inspire.md` for the full write-up.
 
+## DOCX
+
+`render_docx`/`validate_docx` (also `compono.docx`) generate `.docx`
+documents — compono's second output format, for linear content (proposals,
+reports) rather than slides. It has its own smaller primitive set
+(`heading`, `paragraph`, `bullet_list`, `numbered_list`, `table`, `image`,
+`chart`, `page_break`) since a document flows top-to-bottom on its own —
+no resolver/EMU layout math needed. Every primitive renders as a real,
+editable python-docx object **except `chart`**, which is rasterized via
+matplotlib and embedded as a picture (`python-docx` has no native chart
+API, unlike `python-pptx`) — the one deliberate, documented exception to
+compono's usual "always a real object" preference. See `docs/docx.md` for
+the full write-up.
+
 ## CLI
 
 ```bash
@@ -360,8 +374,10 @@ compono review spec.json
 compono render spec.json --template modern -o deck.pptx
 compono reference
 compono inspire scan decks/ -o skills/inspire-myteam/
+compono docx validate doc_spec.json
+compono docx render doc_spec.json -o report.docx
 ```
 
-Mirrors `validate`/`review`/`render_deck`/`reference`/`inspire` exactly —
-useful when shell access is available but importing Python isn't (or as
-a quick check without writing a script).
+Mirrors `validate`/`review`/`render_deck`/`reference`/`inspire`/`render_docx`
+exactly — useful when shell access is available but importing Python isn't
+(or as a quick check without writing a script).

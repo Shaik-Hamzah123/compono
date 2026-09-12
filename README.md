@@ -117,6 +117,7 @@ catalog and error shape in one shot.
 - [CLI](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/cli.md)
 - [MCP server](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/mcp.md) — `compono-mcp`, and what to do when compono has no context
 - [Inspire](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/inspire.md) — scan liked decks into a style profile/skill, structure and style only, never literal content
+- [DOCX generation](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/docx.md) — compono's second output format, for linear documents rather than slides
 - [Claude Code plugin](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/claude-code-plugin.md)
 - [Examples](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/examples.md) — rendered screenshots across genres, from real `examples/*.json` specs
 

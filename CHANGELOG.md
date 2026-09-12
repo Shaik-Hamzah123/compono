@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-12
+
+### Added
+- `compono.docx_schema`/`compono.docx`: compono's second output format,
+  `.docx` documents, alongside the existing `.pptx` decks. A new, smaller
+  primitive set (`heading`, `paragraph`, `bullet_list`, `numbered_list`,
+  `table`, `image`, `chart`, `page_break`) since a Word document flows
+  top-to-bottom on its own — no resolver/EMU layout math needed, unlike
+  slides. `render_docx(spec, output_path)`/`validate_docx(spec)` mirror
+  `render_deck`/`validate`'s shape exactly: `validate_docx` never raises
+  (`{valid, errors, warnings}`); `render_docx` raises `DocxValidationError`
+  with the same `{section, primitive, field, error, detail, fix}`
+  structured-error convention (`section` replacing `slide`) and writes
+  nothing on failure. New `compono docx validate`/`compono docx render`
+  CLI subcommands, mirroring `compono validate`/`compono render`.
+- New dependencies: `python-docx`, `matplotlib`.
+
+### Known limitations
+- `chart` renders as a rasterized (matplotlib) image, not a native Word
+  chart object — `python-docx` has no chart API, unlike `python-pptx`'s
+  `add_chart`. This is the one deliberate, documented exception to
+  compono's "always a real, editable object" preference; every other
+  docx primitive is a genuine python-docx object
+  (`tests/test_docx_shape_invariant.py`).
+- No overflow/text-fit validation for docx — Word wraps and paginates
+  content itself, so there's no equivalent to pptx's font-metric
+  overflow check.
+- No `review()`-equivalent design-quality pass for docx yet.
+- Not yet exposed as an MCP tool — `compono-mcp` still proxies only the
+  pptx verbs and `inspire_scan`.
+
 ## [0.1.8] - 2026-09-12
 
 ### Added

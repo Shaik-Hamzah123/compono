@@ -5,6 +5,8 @@ compono review spec.json
 compono render spec.json --template modern -o deck.pptx
 compono reference
 compono inspire scan decks/ -o skills/inspire-myteam/
+compono docx validate doc_spec.json
+compono docx render doc_spec.json -o report.docx
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import json
 import sys
 from pathlib import Path
 
+from compono.docx import DocxValidationError, render_docx, validate_docx
 from compono.inspire import aggregate, write_skill
 from compono.reference import reference
 from compono.render import DeckValidationError, render_deck, validate
@@ -88,6 +91,22 @@ def main(argv: list[str] | None = None) -> int:
         type=float,
         default=0.5,
         help="Fraction of decks a fact must appear in to count as recurring.",
+    )
+
+    docx_parser = subparsers.add_parser(
+        "docx", help="Validate/render a docx document spec."
+    )
+    docx_subparsers = docx_parser.add_subparsers(dest="docx_command", required=True)
+    docx_validate_parser = docx_subparsers.add_parser(
+        "validate", help="Validate a docx document spec without rendering."
+    )
+    docx_validate_parser.add_argument("spec", help="Path to a JSON docx spec.")
+    docx_render_parser = docx_subparsers.add_parser(
+        "render", help="Render a docx document spec to a .docx file."
+    )
+    docx_render_parser.add_argument("spec", help="Path to a JSON docx spec.")
+    docx_render_parser.add_argument(
+        "-o", "--output", default="document.docx", help="Output .docx path."
     )
 
     args = parser.parse_args(argv)
@@ -178,6 +197,43 @@ def main(argv: list[str] | None = None) -> int:
                     "profile_json": str(files.profile_json),
                     "n_decks_scanned": profile["n_example_decks"],
                     "warnings": profile["warnings"],
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "docx" and args.docx_command == "validate":
+        spec = _load_spec(args.spec)
+        docx_validation_report = validate_docx(spec)
+        print(
+            json.dumps(
+                {
+                    "valid": docx_validation_report.valid,
+                    "errors": docx_validation_report.errors,
+                    "warnings": docx_validation_report.warnings,
+                },
+                indent=2,
+            )
+        )
+        return 0 if docx_validation_report.valid else 1
+
+    if args.command == "docx" and args.docx_command == "render":
+        spec = _load_spec(args.spec)
+        try:
+            docx_render_report = render_docx(spec, args.output)
+        except DocxValidationError as exc:
+            print(
+                json.dumps({"valid": False, "errors": exc.errors}, indent=2),
+                file=sys.stderr,
+            )
+            return 1
+        print(
+            json.dumps(
+                {
+                    "docx_path": str(docx_render_report.docx_path),
+                    "manifest": docx_render_report.manifest,
+                    "warnings": docx_render_report.warnings,
                 },
                 indent=2,
             )
