@@ -112,6 +112,12 @@ render_docx(spec, "report.docx")      # writes a real .docx, or raises
 }
 ```
 
+## MCP
+
+`compono-mcp` exposes the same two verbs as tools:
+`validate_docx_tool(spec)`/`render_docx_tool(spec, output_path)` — see
+[MCP server](mcp.md).
+
 ## Known limitations
 
 - No resolver/overflow validation for text — Word wraps and paginates
@@ -121,5 +127,3 @@ render_docx(spec, "report.docx")      # writes a real .docx, or raises
   above).
 - No `review()`-equivalent design-quality pass yet (contrast/whitespace
   checks are pptx-specific today).
-- Not yet exposed as an MCP tool — `compono-mcp` currently proxies only
-  the pptx verbs and `inspire_scan`.

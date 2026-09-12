@@ -23,7 +23,8 @@ not a picture of one.
 
 You are receiving this document through the `compono-mcp` MCP server's
 `compono://reference` resource — use its `validate_deck`/`review_deck`/
-`render_deck_tool` tools as described below.
+`render_deck_tool`/`validate_docx_tool`/`render_docx_tool` tools as
+described below.
 
 ## Quickstart
 
@@ -85,6 +86,8 @@ the identical `spec` shape instead of importing Python directly.
 | `validate_deck` | `spec: object` | `{valid, errors, warnings}` | No file write. Never errors out on malformed input — `valid: false` with structured errors instead. |
 | `review_deck` | `spec: object` | `{suggestions, warnings}` | Design-quality suggestions (contrast, whitespace, image fit, font-size proximity to overflow, style) — never blocking, no valid/invalid, `suggestions` may be empty. Complements `validate_deck`, doesn't replace it. |
 | `render_deck_tool` | `spec: object, output_path: string` | `{pptx_path, manifest, warnings}` on success, or `{valid: false, errors}` on failure | Writes a real `.pptx` at `output_path` on the machine running this server. |
+| `validate_docx_tool` | `spec: object` | `{valid, errors, warnings}` | Same shape as `validate_deck`, for a docx spec — errors use `"section"` in place of `"slide"`. |
+| `render_docx_tool` | `spec: object, output_path: string` | `{docx_path, manifest, warnings}` on success, or `{valid: false, errors}` on failure | Writes a real `.docx` at `output_path`. See "DOCX" below. |
 
 A `spec` (a `Deck`) is `{template?: str, slides: [Slide, ...]}`. A `Slide` is
 `{header?: Header, body: [primitive, ...], notes?: str}`. `body` (and
@@ -340,12 +343,38 @@ n_decks_scanned, warnings}`; a `.pptx` that fails to open is skipped and
 named in `warnings`, never raised. See `docs/inspire.md` in the main repo
 for the full write-up.
 
-## DOCX (not yet an MCP tool)
+## DOCX
 
-`compono` core also generates `.docx` documents (`render_docx`/
-`validate_docx`, `compono.docx`) — its second output format, for linear
-content rather than slides, with its own primitive set (`heading`,
+`validate_docx_tool`/`render_docx_tool` generate `.docx` documents —
+compono's second output format, for linear content (proposals, reports)
+rather than slides. It has its own smaller primitive set (`heading`,
 `paragraph`, `bullet_list`, `numbered_list`, `table`, `image`, `chart`,
-`page_break`). Not yet exposed through this MCP server — only reachable
-today via `compono`'s Python API or `compono docx validate`/`compono docx
-render` CLI. See `docs/docx.md` in the main repo for the full write-up.
+`page_break`) since a document flows top-to-bottom on its own — no
+resolver/EMU layout math needed. A `spec` (a `DocxDoc`) is `{title: str,
+sections: [Section, ...]}`; a `Section` is `{header_text?: str, footer_text?:
+str, body: [primitive, ...]}`.
+
+```python
+spec = {
+    "title": "Training Proposal",
+    "sections": [{
+        "header_text": "Acme Corp — Confidential",
+        "body": [
+            {"primitive": "heading", "text": "Overview", "level": 1},
+            {"primitive": "paragraph", "runs": [
+                {"text": "This is "}, {"text": "bold", "bold": True}, {"text": "."}
+            ]},
+            {"primitive": "table", "headers": ["Track", "Weeks"],
+             "rows": [["AI Foundations", "1-2"]]},
+        ],
+    }],
+}
+render_docx_tool(spec, "proposal.docx")
+```
+
+Every primitive renders as a real, editable python-docx object **except
+`chart`**, which is rasterized via matplotlib and embedded as a picture —
+`python-docx` has no native chart API, unlike `python-pptx`'s `add_chart`.
+This is the one deliberate, documented exception to compono's usual
+"always a real object" preference. See `docs/docx.md` in the main repo
+for the full write-up.

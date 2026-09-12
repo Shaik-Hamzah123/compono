@@ -1,4 +1,4 @@
-"""MCP server exposing compono's render_deck/validate/review as MCP tools.
+"""MCP server exposing compono's render_deck/validate/review/docx as MCP tools.
 
 Every tool here is a thin proxy — no reimplemented logic. `spec` parameters
 are typed as plain `dict`, not the `Deck` pydantic model, so malformed input
@@ -16,10 +16,13 @@ from fastmcp import FastMCP
 
 from compono import (
     DeckValidationError,
+    DocxValidationError,
     aggregate,
     render_deck,
+    render_docx,
     review,
     validate,
+    validate_docx,
     write_skill,
 )
 
@@ -94,6 +97,41 @@ def inspire_scan(
         "profile_json": str(files.profile_json),
         "n_decks_scanned": profile["n_example_decks"],
         "warnings": profile["warnings"],
+    }
+
+
+@mcp.tool()
+def validate_docx_tool(spec: dict[str, Any]) -> dict[str, Any]:
+    """Validate a compono docx spec: schema checks only, no file write.
+
+    Never raises: malformed input comes back as {valid: false, errors: [...]},
+    each error shaped {section, primitive, field, error, detail, fix} (the
+    docx analogue of validate_deck's per-slide error shape, with "section"
+    replacing "slide").
+    """
+    report = validate_docx(spec)
+    return {"valid": report.valid, "errors": report.errors, "warnings": report.warnings}
+
+
+@mcp.tool()
+def render_docx_tool(spec: dict[str, Any], output_path: str) -> dict[str, Any]:
+    """Render a compono docx spec to a real, editable .docx file at output_path.
+
+    On success: {docx_path, manifest, warnings}. On any validation error:
+    {valid: false, errors: [...]} in the same shape as validate_docx_tool —
+    nothing is written to output_path in that case. `chart` primitives render
+    as a rasterized image (matplotlib) — python-docx has no native chart API
+    — every other primitive is a real, editable python-docx object.
+    """
+    try:
+        report = render_docx(spec, output_path)
+    except DocxValidationError as exc:
+        return {"valid": False, "errors": exc.errors}
+
+    return {
+        "docx_path": str(report.docx_path),
+        "manifest": report.manifest,
+        "warnings": report.warnings,
     }
 
 

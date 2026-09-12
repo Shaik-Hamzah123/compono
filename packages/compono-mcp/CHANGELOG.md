@@ -9,6 +9,20 @@ Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-09-12
+
+### Added
+- `validate_docx_tool(spec)`/`render_docx_tool(spec, output_path)` tools:
+  proxy `compono`'s new `.docx` output format (`compono.docx`), same
+  thin-proxy convention as `validate_deck`/`render_deck_tool` — errors use
+  `"section"` in place of `"slide"`. `chart` primitives render as a
+  rasterized image (matplotlib); every other docx primitive is a real,
+  editable python-docx object.
+
+### Changed
+- `compono` dependency bumped to `>=0.2.0` (needs `compono.docx`, new in
+  0.2.0).
+
 ## [0.1.2] - 2026-09-12
 
 ### Added

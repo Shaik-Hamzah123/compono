@@ -10,8 +10,10 @@ from compono_mcp.server import (
     inspire_scan,
     reference,
     render_deck_tool,
+    render_docx_tool,
     review_deck,
     validate_deck,
+    validate_docx_tool,
 )
 
 MINIMAL_SPEC = {
@@ -129,6 +131,64 @@ def test_inspire_scan_never_leaks_literal_source_text(tmp_path: Path) -> None:
     profile_text = Path(result["profile_json"]).read_text(encoding="utf-8")
     assert "Shipped the resolver" not in profile_text
     assert "Q3 Results" not in profile_text
+
+
+MINIMAL_DOCX_SPEC = {
+    "title": "Q3 Report",
+    "sections": [
+        {
+            "body": [
+                {"primitive": "heading", "text": "Overview", "level": 1},
+                {"primitive": "paragraph", "runs": [{"text": "Shipped the resolver."}]},
+            ]
+        }
+    ],
+}
+
+
+def test_validate_docx_tool_accepts_valid_spec() -> None:
+    result = validate_docx_tool(MINIMAL_DOCX_SPEC)
+    assert result["valid"] is True
+    assert result["errors"] == []
+
+
+def test_validate_docx_tool_returns_structured_errors_for_malformed_spec() -> None:
+    result = validate_docx_tool(
+        {"title": "Bad", "sections": [{"body": [{"primitive": "heading"}]}]}
+    )  # missing required text
+    assert result["valid"] is False
+    error = result["errors"][0]
+    assert set(error.keys()) >= {
+        "section",
+        "primitive",
+        "field",
+        "error",
+        "detail",
+        "fix",
+    }
+
+
+def test_render_docx_tool_writes_a_real_docx(tmp_path: Path) -> None:
+    output = tmp_path / "report.docx"
+    result = render_docx_tool(MINIMAL_DOCX_SPEC, str(output))
+
+    assert result["docx_path"] == str(output)
+    assert output.exists()
+    assert "warnings" in result
+
+
+def test_render_docx_tool_returns_structured_errors_instead_of_raising(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "report.docx"
+    result = render_docx_tool(
+        {"title": "Bad", "sections": [{"body": [{"primitive": "heading"}]}]},
+        str(output),
+    )
+
+    assert result["valid"] is False
+    assert result["errors"]
+    assert not output.exists()
 
 
 def test_reference_resource_returns_nonempty_text_with_expected_content() -> None:
