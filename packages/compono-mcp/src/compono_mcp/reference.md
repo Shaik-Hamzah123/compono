@@ -325,14 +325,17 @@ falls back to a system font if one is found, and is skipped — not faked —
 with a warning if none is available. This is independent of `font_family`
 — overflow metrics don't yet reflect the template's chosen typeface.
 
-## Inspire (not yet an MCP tool)
+## Inspire
 
-Core `compono` also ships `scan_deck`/`aggregate`/`write_skill`
-(`compono.inspire`): scan a folder of `.pptx` files someone already likes
-into a style profile/skill — palette, fonts, spacing, grid patterns,
-never literal text or images — for an agent to adopt loosely on new
-decks. This isn't exposed as an MCP tool yet (it's a filesystem-scanning
-verb, a different shape from `validate_deck`/`review_deck`/
-`render_deck_tool`'s spec-in/spec-out pattern) — an MCP client that needs
-it today should shell out to `compono inspire scan` directly. See
-`docs/inspire.md` in the main repo for the full write-up.
+`inspire_scan(pptx_paths, out_dir, name="custom", min_repeat_ratio=0.5)`
+scans a set of `.pptx` files someone already likes into a style profile —
+palette, fonts, spacing, grid patterns with a confidence score, **never**
+literal text or images — and writes it as a `skills/inspire-<name>/`
+folder (`SKILL.md` + `profile.json`) at `out_dir`, for an agent to read
+before generating a *new* deck and adopt similar practices loosely rather
+than copy any source deck literally. A fact must recur in at least
+`min_repeat_ratio` of the given decks to be reported as a real practice
+rather than a one-off quirk. Returns `{skill_md, profile_json,
+n_decks_scanned, warnings}`; a `.pptx` that fails to open is skipped and
+named in `warnings`, never raised. See `docs/inspire.md` in the main repo
+for the full write-up.

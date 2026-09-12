@@ -9,6 +9,21 @@ Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-09-12
+
+### Added
+- `inspire_scan(pptx_paths, out_dir, name="custom", min_repeat_ratio=0.5)`
+  tool: scans a set of `.pptx` files someone already likes into a style
+  profile (palette, fonts, spacing, confidence-scored grid patterns) via
+  `compono.inspire`, never literal text or images, and writes it as a
+  `skills/inspire-<name>/{SKILL.md, profile.json}` folder. Complements
+  `validate_deck`/`review_deck`/`render_deck_tool` with a filesystem-in,
+  filesystem-out shape rather than spec-in/spec-out.
+
+### Changed
+- `compono` dependency bumped to `>=0.1.8` (needs `compono.inspire`, new
+  in 0.1.8).
+
 ## [0.1.1] - 2026-09-12
 
 ### Added

@@ -66,6 +66,12 @@ write_skill(merged, "skills/inspire-myteam/", name="myteam")
 the scanned files. `write_skill` is the only function that writes to
 disk, and only to the folder you point it at.
 
+## MCP
+
+`compono-mcp` exposes the same scan+write step as one tool:
+`inspire_scan(pptx_paths, out_dir, name="custom", min_repeat_ratio=0.5)` —
+see [MCP server](mcp.md).
+
 ## Known limitations
 
 - Grid detection is a naive geometric heuristic (row-clustering by

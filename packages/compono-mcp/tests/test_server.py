@@ -6,7 +6,13 @@ carry compono's examples/ directory).
 
 from pathlib import Path
 
-from compono_mcp.server import reference, render_deck_tool, review_deck, validate_deck
+from compono_mcp.server import (
+    inspire_scan,
+    reference,
+    render_deck_tool,
+    review_deck,
+    validate_deck,
+)
 
 MINIMAL_SPEC = {
     "slides": [
@@ -92,6 +98,37 @@ def test_review_deck_flags_low_contrast_shape_text() -> None:
     }
     result = review_deck(spec)
     assert any(s["category"] == "contrast" for s in result["suggestions"])
+
+
+def test_inspire_scan_writes_skill_folder_from_real_pptx_files(
+    tmp_path: Path,
+) -> None:
+    from compono import render_deck as _render_deck
+
+    deck_path = tmp_path / "liked.pptx"
+    _render_deck(MINIMAL_SPEC, str(deck_path))
+
+    out_dir = tmp_path / "skills" / "inspire-team"
+    result = inspire_scan([str(deck_path)], str(out_dir), name="team")
+
+    assert result["n_decks_scanned"] == 1
+    assert result["warnings"] == []
+    assert Path(result["skill_md"]).exists()
+    assert Path(result["profile_json"]).exists()
+
+
+def test_inspire_scan_never_leaks_literal_source_text(tmp_path: Path) -> None:
+    from compono import render_deck as _render_deck
+
+    deck_path = tmp_path / "liked.pptx"
+    _render_deck(MINIMAL_SPEC, str(deck_path))
+
+    out_dir = tmp_path / "skills" / "inspire-team"
+    result = inspire_scan([str(deck_path)], str(out_dir), name="team")
+
+    profile_text = Path(result["profile_json"]).read_text(encoding="utf-8")
+    assert "Shipped the resolver" not in profile_text
+    assert "Q3 Results" not in profile_text
 
 
 def test_reference_resource_returns_nonempty_text_with_expected_content() -> None:

@@ -14,7 +14,14 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from compono import DeckValidationError, render_deck, review, validate
+from compono import (
+    DeckValidationError,
+    aggregate,
+    render_deck,
+    review,
+    validate,
+    write_skill,
+)
 
 mcp = FastMCP("compono")
 
@@ -60,6 +67,34 @@ def review_deck(spec: dict[str, Any]) -> dict[str, Any]:
     """
     report = review(spec)
     return {"suggestions": report.suggestions, "warnings": report.warnings}
+
+
+@mcp.tool()
+def inspire_scan(
+    pptx_paths: list[str],
+    out_dir: str,
+    name: str = "custom",
+    min_repeat_ratio: float = 0.5,
+) -> dict[str, Any]:
+    """Scan a set of .pptx files someone already likes into a style profile,
+    and write it as a skills/inspire-<name>/ folder (SKILL.md + profile.json)
+    at out_dir.
+
+    Extracts only measurable structure — palette, fonts, spacing, grid
+    patterns with a confidence score — never literal text or images from
+    the scanned decks. A fact must recur in at least min_repeat_ratio of
+    the given decks to be reported as a real practice rather than a one-off
+    quirk. Returns {skill_md, profile_json, n_decks_scanned}; a .pptx that
+    fails to open is skipped and named in the returned warnings, not raised.
+    """
+    profile = aggregate(pptx_paths, min_repeat_ratio=min_repeat_ratio)
+    files = write_skill(profile, out_dir, name=name)
+    return {
+        "skill_md": str(files.skill_md),
+        "profile_json": str(files.profile_json),
+        "n_decks_scanned": profile["n_example_decks"],
+        "warnings": profile["warnings"],
+    }
 
 
 @mcp.resource("compono://reference")

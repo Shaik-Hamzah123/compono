@@ -18,9 +18,10 @@ Add to your MCP client config (Claude Desktop / Claude Code style):
 ```
 
 Exposes `validate_deck`/`review_deck`/`render_deck_tool` tools (identical
-`spec` shape to the Python API) and a `compono://reference` resource
-carrying the full agent-facing reference doc, for clients without Claude
-Code's skill system.
+`spec` shape to the Python API), `inspire_scan` (see [Inspire](inspire.md)
+— scan liked decks into a style profile/skill), and a `compono://reference`
+resource carrying the full agent-facing reference doc, for clients without
+Claude Code's skill system.
 
 ### When compono has no context
 
