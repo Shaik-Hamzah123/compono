@@ -26,5 +26,28 @@ export type { PrimitiveSpecT } from "./schema.js";
 export { DeckValidationError, renderDeck, validate } from "./render.js";
 export type { RenderReport, ValidationReport } from "./render.js";
 
+export { review } from "./review.js";
+export type { ReviewReport } from "./review.js";
+
+export {
+  BulletList,
+  DocChart,
+  DocChartSeries,
+  DocImage,
+  DocTable,
+  DocxDoc,
+  DocxPrimitiveSpec,
+  Heading,
+  NumberedList,
+  PageBreak,
+  Paragraph,
+  Run,
+  Section,
+} from "./docx_schema.js";
+export type { DocxPrimitiveSpecT } from "./docx_schema.js";
+
+export { DocxValidationError, renderDocx, validateDocx } from "./docx.js";
+export type { DocxRenderReport } from "./docx.js";
+
 export { loadTemplateByName, loadTemplateFromYaml } from "./resolver.js";
 export type { Template } from "./resolver.js";

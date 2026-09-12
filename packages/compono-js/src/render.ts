@@ -88,7 +88,7 @@ function zodErrorToDicts(error: z.ZodError): Record<string, unknown>[] {
   }));
 }
 
-function parseDeck(spec: unknown): Deck {
+export function parseDeck(spec: unknown): Deck {
   const result = Deck.safeParse(spec);
   if (!result.success) {
     throw new DeckValidationError(zodErrorToDicts(result.error));
@@ -96,7 +96,7 @@ function parseDeck(spec: unknown): Deck {
   return result.data;
 }
 
-function extractTextFields(
+export function extractTextFields(
   primitive: PrimitiveSpecT | Header,
 ): [string, string, number][] {
   switch (primitive.primitive) {
@@ -118,7 +118,7 @@ function extractTextFields(
   }
 }
 
-function walkPrimitives(items: PrimitiveSpecT[]): PrimitiveSpecT[] {
+export function walkPrimitives(items: PrimitiveSpecT[]): PrimitiveSpecT[] {
   const out: PrimitiveSpecT[] = [];
   for (const item of items) {
     out.push(item);
