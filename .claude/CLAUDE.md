@@ -4,13 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`compono` — an agent-oriented, code-based PPTX generation library ("Manim,
-but for PowerPoint"). An LLM agent describes a slide deck as typed
-primitives (JSON/dict), and a constraint-based layout resolver computes
-real EMU positions so the agent never writes raw coordinates. Every
-rendered element must be a genuine, editable OOXML shape — never a
-flattened image or embedded video. The full spec is `COMPONO_PLAN.md` at
-the repo root; read it before making architectural changes.
+`compono` — an agent-oriented, code-based PPTX/DOCX generation library
+("Manim, but for PowerPoint/Word"). An LLM agent describes a slide deck (or
+a Word document) as typed primitives (JSON/dict); for pptx, a
+constraint-based layout resolver computes real EMU positions so the agent
+never writes raw coordinates — docx has no resolver, since Word flows
+content top-to-bottom on its own, and uses its own smaller primitive set
+(`src/compono/docx_schema.py`/`src/compono/docx.py`, see `docs/docx.md`).
+Every rendered element must be a genuine, editable OOXML shape — never a
+flattened image or embedded video — with one documented exception: a docx
+`chart` primitive, which `python-docx` has no native API for, is
+rasterized via matplotlib. The full pptx spec is `COMPONO_PLAN.md` at the
+repo root; read it before making architectural changes to the pptx path.
 
 ## Commands
 
@@ -136,7 +141,23 @@ new work almost always touches several of them in the same pattern:
    + caption and append a manifest entry instead.
 5. **`cli.py`** — argparse wrapper exposing `validate`/`render_deck` as
    `compono validate`/`compono render`, for frameworks that can only shell
-   out.
+   out (also wires up `docx validate`/`docx render`, `inspire scan`,
+   `reference`).
+
+### DOCX (a separate, parallel pipeline)
+
+`docx_schema.py`/`docx.py` are compono's second output format — `.docx`
+documents, not slides — and are deliberately **not** part of the five
+modules above: no resolver (Word flows content top-to-bottom on its own),
+a smaller primitive set (`heading`, `paragraph`, `bullet_list`,
+`numbered_list`, `table`, `image`, `chart`, `page_break`), and `docx.py` is
+the only module allowed to import `docx`/`matplotlib` (mirrors
+`render.py`'s "only module allowed to import pptx" rule). `render_docx()`/
+`validate_docx()` are its two public verbs, same shape as `render_deck()`/
+`validate()`. One deliberate, documented exception to the "always a real
+object" invariant below: `chart` is rasterized via matplotlib (no native
+Word chart API exists in `python-docx`) — every other docx primitive is a
+genuine python-docx object. See `docs/docx.md` for the full write-up.
 
 ### Adding a new primitive
 
@@ -155,7 +176,9 @@ primitives — don't create a new test file per primitive.
 - Every primitive renders as a real, editable OOXML shape — never a
   flattened image or embedded video. Enforced by
   `tests/test_render_shape_invariant.py`, which renders every
-  `examples/*.json` spec and asserts only allowed shape types appear.
+  `examples/*.json` spec and asserts only allowed shape types appear. The
+  one documented exception is docx's `chart` primitive (see "DOCX" above),
+  scoped and enforced separately by `tests/test_docx_shape_invariant.py`.
 - Resolver and validator stay pure functions (no pptx writes, no network).
 - One shared text-fit routine (`validator.check_overflow`/`wrap_lines`) for
   every text-bearing primitive — never a per-primitive reimplementation.

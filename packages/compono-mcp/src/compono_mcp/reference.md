@@ -1,14 +1,16 @@
 <!--
   Served verbatim as the `compono://reference` MCP resource (see server.py).
-  Kept in sync with the repo root skills/compono/SKILL.md and README.md —
-  same convention already used between those two files. Update all three
-  together when the API surface changes.
+  Kept in sync with the repo root README.md, skills/compono/SKILL.md, and
+  src/compono/reference.md (served instead via compono.reference()/`compono
+  reference` for agents without MCP). Update all four together when the API
+  surface changes.
 -->
 
 # compono
 
-**Agent-oriented, code-based PPTX generation.** Describe a deck as typed
-primitives — an LLM agent never writes raw coordinates or touches OOXML.
+**Agent-oriented, code-based PPTX/DOCX generation.** Describe a deck or
+document as typed primitives — an LLM agent never writes raw coordinates
+or touches OOXML.
 
 compono lets you describe a slide deck as data — headers, bullet text,
 stats, tables, charts, images, process sequences, shapes — and get back a
@@ -20,6 +22,10 @@ Every rendered element is a genuine, editable native shape (`p:sp`, `p:pic`,
 `p:graphicFrame`) — never a flattened image or embedded video. Opening the
 result in PowerPoint and dragging a box around works; it's a real object,
 not a picture of one.
+
+compono also generates `.docx` documents through this server's
+`validate_docx_tool`/`render_docx_tool` — its second output format, for
+linear content rather than slides. See the "DOCX" section below.
 
 You are receiving this document through the `compono-mcp` MCP server's
 `compono://reference` resource — use its `validate_deck`/`review_deck`/

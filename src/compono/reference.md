@@ -10,8 +10,9 @@
 
 # compono
 
-**Agent-oriented, code-based PPTX generation.** Describe a deck as typed
-primitives — an LLM agent never writes raw coordinates or touches OOXML.
+**Agent-oriented, code-based PPTX/DOCX generation.** Describe a deck or
+document as typed primitives — an LLM agent never writes raw coordinates
+or touches OOXML.
 
 compono lets you describe a slide deck as data — headers, bullet text,
 stats, tables, charts, images, process sequences, shapes — and get back a
@@ -24,10 +25,15 @@ Every rendered element is a genuine, editable native shape (`p:sp`, `p:pic`,
 result in PowerPoint and dragging a box around works; it's a real object,
 not a picture of one.
 
+compono also generates `.docx` documents — its second output format, for
+linear content (proposals, reports) rather than slides, with its own
+smaller primitive set. See the "DOCX" section below.
+
 You are receiving this document via `compono.reference()` / `compono
 reference` — for an agent with code-exec or shell access but no MCP
 connection or Claude Code skill loaded. Use its `render_deck`/`validate`/
-`review` functions (or the CLI's matching subcommands) as described below.
+`review`/`render_docx`/`validate_docx` functions (or the CLI's matching
+subcommands) as described below.
 
 ## Quickstart
 

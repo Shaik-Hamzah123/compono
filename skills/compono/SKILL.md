@@ -1,12 +1,13 @@
 ---
 name: compono
-description: Build PowerPoint (.pptx) decks as data — typed primitives (header, text, image, stat, grid, table, sequence, chart, shape) rendered via a constraint-based layout resolver, with real editable shapes (never flattened images/video). Use when asked to create, generate, or edit a slide deck/presentation programmatically.
+description: Build PowerPoint (.pptx) decks or Word (.docx) documents as data — typed primitives (header, text, image, stat, grid, table, sequence, chart, shape for pptx; heading, paragraph, bullet_list, table, image, chart for docx) rendered via a constraint-based layout resolver (pptx) or Word's own flow (docx), with real editable shapes (never flattened images/video, except docx charts — see below). Use when asked to create, generate, or edit a slide deck/presentation or a Word document programmatically.
 ---
 
 # compono
 
-**Agent-oriented, code-based PPTX generation.** Describe a deck as typed
-primitives — an LLM agent never writes raw coordinates or touches OOXML.
+**Agent-oriented, code-based PPTX/DOCX generation.** Describe a deck or
+document as typed primitives — an LLM agent never writes raw coordinates
+or touches OOXML.
 
 compono lets you describe a slide deck as data — headers, bullet text,
 stats, tables, charts, images, process sequences, shapes — and get back a
@@ -18,6 +19,10 @@ Every rendered element is a genuine, editable native shape (`p:sp`, `p:pic`,
 `p:graphicFrame`) — never a flattened image or embedded video. Opening the
 result in PowerPoint and dragging a box around works; it's a real object,
 not a picture of one.
+
+compono also generates `.docx` documents — its second output format, for
+linear content (proposals, reports) rather than slides, with its own
+smaller primitive set. See the "DOCX" section below.
 
 This is the packaged, agent-facing version of the project's README — see
 the repo root `README.md` for the human-facing copy (kept in sync).
