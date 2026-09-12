@@ -49,5 +49,8 @@ export type { DocxPrimitiveSpecT } from "./docx_schema.js";
 export { DocxValidationError, renderDocx, validateDocx } from "./docx.js";
 export type { DocxRenderReport } from "./docx.js";
 
+export { aggregate, scanDeck, writeSkill } from "./inspire.js";
+export type { AggregatedProfile, DeckProfile, SkillFiles } from "./inspire.js";
+
 export { loadTemplateByName, loadTemplateFromYaml } from "./resolver.js";
 export type { Template } from "./resolver.js";

@@ -27,6 +27,7 @@
     "chartjs-node-canvas": "^5.0.0",
     "commander": "^12.1.0",
     "docx": "^9.7.1",
+    "fast-xml-parser": "^5.11.1",
     "fontkit": "^2.0.4",
     "image-size": "^2.0.2",
     "pptxgenjs": "^3.12.0",

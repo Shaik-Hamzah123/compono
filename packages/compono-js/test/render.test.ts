@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { DeckValidationError, renderDeck, validate } from "../src/render.js";
 
@@ -80,5 +81,38 @@ describe("renderDeck", () => {
     await expect(renderDeck(overflowSpec, output)).rejects.toMatchObject({
       errors: expect.arrayContaining([expect.objectContaining({ error: "overflow" })]),
     });
+  });
+
+  it("draws a shape with text as one shape, not two stacked shapes at the same rect (regression)", async () => {
+    // A real bug found via inspire.test.ts: addShape()+addText() as two
+    // separate calls drew two overlapping <p:sp> elements per shape-with-
+    // text primitive, which threw off Inspire's row-grouping/grid-detection
+    // math when scanning a rendered deck back. pptxgenjs's addText(text,
+    // {shape: ...}) draws both in one real shape instead.
+    const output = tmpPath("shape.pptx");
+    const spec = {
+      slides: [
+        {
+          body: [
+            {
+              primitive: "shape",
+              kind: "rounded_rect",
+              fill: "#2A9D8F",
+              text: { content: "Card", color: "#FFFFFF" },
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    // 2 total <p:sp>: the shape+text (one element) and the footer page
+    // number (a separate shape) — never a 3rd, duplicate shape for the
+    // text stacked on top of the fill.
+    expect((slideXml.match(/<p:sp>/g) ?? []).length).toBe(2);
+    expect(slideXml).toContain("Card");
+    expect(slideXml).toContain("2A9D8F");
   });
 });

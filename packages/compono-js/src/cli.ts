@@ -6,12 +6,14 @@
  * compono-js render spec.json --template modern -o deck.pptx
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { Command } from "commander";
 import { DeckValidationError, renderDeck, validate } from "./render.js";
 import { loadTemplateByName } from "./resolver.js";
 import { review } from "./review.js";
 import { DocxValidationError, renderDocx, validateDocx } from "./docx.js";
+import { aggregate, writeSkill } from "./inspire.js";
 
 function loadSpec(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf-8"));
@@ -89,6 +91,40 @@ docxProgram
       }
       throw err;
     }
+  });
+
+const inspireProgram = program.command("inspire").description("Scan liked decks into a style profile/skill.");
+
+inspireProgram
+  .command("scan")
+  .argument("<folder>", "Folder containing .pptx files to scan.")
+  .requiredOption("-o, --output <path>", "Output folder for SKILL.md + profile.json.")
+  .option("--name <name>", "Name used in SKILL.md's frontmatter.", "custom")
+  .option("--min-repeat-ratio <ratio>", "Fraction of decks a fact must appear in to count as recurring.", "0.5")
+  .action(async (folder: string, opts: { output: string; name: string; minRepeatRatio: string }) => {
+    const pptxPaths = readdirSync(folder)
+      .filter((f) => f.endsWith(".pptx"))
+      .sort()
+      .map((f) => join(folder, f));
+    if (pptxPaths.length === 0) {
+      console.error(JSON.stringify({ error: `No .pptx files found under ${JSON.stringify(folder)}.` }));
+      process.exitCode = 1;
+      return;
+    }
+    const profile = await aggregate(pptxPaths, Number(opts.minRepeatRatio));
+    const files = writeSkill(profile, opts.output, opts.name);
+    console.log(
+      JSON.stringify(
+        {
+          skill_md: files.skillMd,
+          profile_json: files.profileJson,
+          n_decks_scanned: profile.n_example_decks,
+          warnings: profile.warnings,
+        },
+        null,
+        2,
+      ),
+    );
   });
 
 program.parseAsync(process.argv);

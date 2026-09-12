@@ -389,22 +389,33 @@ function renderShape(slide: PptxSlideLike, shape: Shape, rect: Rect, template: T
   }
 
   const shapeName = SHAPE_KIND_TO_PPTX[shape.kind] ?? "rect";
-  slide.addShape(shapeName, {
-    ...box,
-    fill: shape.fill ? { color: shape.fill.replace("#", "") } : { type: "none" },
-    line: shape.border ? { color: shape.border.replace("#", ""), width: 1 } : { type: "none" },
-  });
+  const fill = shape.fill ? { color: shape.fill.replace("#", "") } : { type: "none" };
+  const line = shape.border ? { color: shape.border.replace("#", ""), width: 1 } : { type: "none" };
 
   if (shape.text) {
+    // pptxgenjs's addText(text, {shape: ...}) draws the fill/line and the
+    // text as one real shape (one <p:sp>) — addShape()+addText() as two
+    // separate calls draws two stacked shapes at the identical rect
+    // instead. That duplication is harmless to look at, but it's a real
+    // shape-count bug: Inspire's row-grouping (inspire.ts) reads raw shape
+    // geometry, and two overlapping shapes per grid cell throws off its
+    // gap/width scoring (found via inspire.test.ts against a real
+    // rendered grid deck, not a hypothetical).
     slide.addText(shape.text.content, {
       ...box,
+      shape: shapeName,
+      fill,
+      line,
       fontFace: template.fontFamily,
       fontSize: BODY_FONT_SIZE_PT,
       align: shape.text.align,
       valign: shape.text.valign,
       color: shape.text.color ? shape.text.color.replace("#", "") : undefined,
     });
+    return;
   }
+
+  slide.addShape(shapeName, { ...box, fill, line });
 }
 
 function renderImage(
