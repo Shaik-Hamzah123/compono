@@ -316,7 +316,7 @@ wheels = [
 
 [[package]]
 name = "compono"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "fonttools" },
@@ -355,7 +355,7 @@ dev = [
 
 [[package]]
 name = "compono-mcp"
-version = "0.1.3"
+version = "0.1.4"
 source = { editable = "packages/compono-mcp" }
 dependencies = [
     { name = "compono" },

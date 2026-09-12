@@ -9,6 +9,13 @@ Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-09-12
+
+### Changed
+- Docs-only release: `README.md` corrected (was missing `review_deck`/
+  `inspire_scan`/docx tools, and used the wrong tool names). Bumped
+  solely so PyPI's project page reflects it.
+
 ## [0.1.3] - 2026-09-12
 
 ### Added

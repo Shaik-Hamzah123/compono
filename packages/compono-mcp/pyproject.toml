@@ -1,6 +1,6 @@
 [project]
 name = "compono-mcp"
-version = "0.1.3"
+version = "0.1.4"
 description = "MCP server exposing compono's render_deck/validate/review/inspire_scan/docx as MCP tools."
 readme = "README.md"
 license = "MIT"

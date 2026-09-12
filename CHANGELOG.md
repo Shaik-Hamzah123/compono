@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-12
+
+### Changed
+- Docs-only release: `README.md` now mentions DOCX generation and links
+  the new `compono-js`/`compono-js-mcp` TypeScript packages. No change to
+  `src/compono/` behavior — bumped solely so PyPI's project page (which
+  snapshots `README.md` at publish time) reflects the current docs.
+
 ## [0.2.0] - 2026-09-12
 
 ### Added

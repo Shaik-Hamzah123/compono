@@ -21,14 +21,11 @@ smaller primitive set (`heading`, `paragraph`, `bullet_list`, `table`,
 `image`, `chart`, ...). See [DOCX generation](docs/docx.md) for the full
 write-up; the rest of this README covers the original `.pptx` path.
 
-Building a JS/TS agent harness instead of a Python one?
-[`compono-js`](packages/compono-js) ([npm](https://www.npmjs.com/package/@skhamzah123/compono-js))
-is a parallel TypeScript port of the same schema/resolver/validator/render
-pipeline — pptx via `pptxgenjs` instead of `python-pptx`, plus `review()`,
-Inspire, and DOCX generation — same primitive-JSON contract, independent
-implementation and version. [`compono-js-mcp`](packages/compono-js-mcp)
-([npm](https://www.npmjs.com/package/@skhamzah123/compono-js-mcp)) exposes
-it as an MCP server, the TypeScript counterpart to `compono-mcp` below.
+Building a JS/TS agent harness instead of a Python one? See
+[compono-js](docs/compono-js.md) — a parallel TypeScript port of the same
+schema/resolver/validator/render pipeline, plus `review()`, Inspire, and
+DOCX generation, plus an MCP server — same primitive-JSON contracts,
+independent implementation and version.
 
 ## Why compono
 
@@ -134,8 +131,7 @@ catalog and error shape in one shot.
 - [MCP server](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/mcp.md) — `compono-mcp`, and what to do when compono has no context
 - [Inspire](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/inspire.md) — scan liked decks into a style profile/skill, structure and style only, never literal content
 - [DOCX generation](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/docx.md) — compono's second output format, for linear documents rather than slides
-- [compono-js](https://github.com/Shaik-Hamzah123/compono/blob/main/packages/compono-js/README.md) — TypeScript port (pptx via pptxgenjs, plus review/Inspire/DOCX), for JS/TS agent harnesses
-- [compono-js-mcp](https://github.com/Shaik-Hamzah123/compono/blob/main/packages/compono-js-mcp/README.md) — MCP server for compono-js, the TypeScript counterpart to compono-mcp
+- [compono-js](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/compono-js.md) — TypeScript port (pptx via pptxgenjs, plus review/Inspire/DOCX) and its MCP server, for JS/TS agent harnesses
 - [Claude Code plugin](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/claude-code-plugin.md)
 - [Examples](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/examples.md) — rendered screenshots across genres, from real `examples/*.json` specs
 

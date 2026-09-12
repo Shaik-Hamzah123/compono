@@ -182,7 +182,7 @@ Neither is a `uv` workspace member — the root `pyproject.toml`'s
 Python directory. A change to a pptx/docx primitive or algorithm on the
 Python side is a candidate to port over here too, but the two
 implementations are not required to stay in lockstep release-to-release
-— check `packages/compono-js/README.md` for what's currently ported.
+— check `docs/compono-js.md` for what's currently ported.
 Real bugs surfaced *by* the port (not hypothetical) so far: a shape-with-
 text drew as two stacked shapes instead of one (broke Inspire's grid
 detection when scanning compono-js's own output), a docx table defaulted
