@@ -1,0 +1,28 @@
+# Default template: palette, fonts, logo assets, motifs, footer, title/closing layout.
+# Template as data, not code — a new brand/style is a new config file, not new code.
+# See COMPONO_PLAN.md section 3, item 2.
+#
+# Layout fields below are consumed by resolver.Template.from_yaml. Palette/fonts/
+# assets are added in a later step once the renderer needs them.
+
+name: default
+
+page:
+  width_in: 13.333   # 16:9 widescreen
+  height_in: 7.5
+
+margin_in:
+  top: 0.5
+  right: 0.6
+  bottom: 0.5
+  left: 0.6
+
+header:
+  height_in: 1.2
+
+footer:
+  height_in: 0.4
+
+gutter_in: 0.2
+
+font_family: Calibri

@@ -21,6 +21,12 @@ smaller primitive set (`heading`, `paragraph`, `bullet_list`, `table`,
 `image`, `chart`, ...). See [DOCX generation](docs/docx.md) for the full
 write-up; the rest of this README covers the original `.pptx` path.
 
+Building a JS/TS agent harness instead of a Python one?
+[`compono-js`](packages/compono-js) is a parallel TypeScript port of the
+same schema/resolver/validator/render pipeline, rendering via
+`pptxgenjs` instead of `python-pptx` — same primitive-JSON contract,
+independent implementation and version.
+
 ## Why compono
 
 Ask an LLM to write raw `python-pptx` (or drive a browser-based renderer
@@ -125,6 +131,7 @@ catalog and error shape in one shot.
 - [MCP server](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/mcp.md) — `compono-mcp`, and what to do when compono has no context
 - [Inspire](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/inspire.md) — scan liked decks into a style profile/skill, structure and style only, never literal content
 - [DOCX generation](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/docx.md) — compono's second output format, for linear documents rather than slides
+- [compono-js](https://github.com/Shaik-Hamzah123/compono/blob/main/packages/compono-js/README.md) — TypeScript port rendering via pptxgenjs, for JS/TS agent harnesses
 - [Claude Code plugin](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/claude-code-plugin.md)
 - [Examples](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/examples.md) — rendered screenshots across genres, from real `examples/*.json` specs
 

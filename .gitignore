@@ -9,6 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Node-generated files (packages/compono-js)
+node_modules/
+
 # Local secrets — never commit
 .env
 .env.*
