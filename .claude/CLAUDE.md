@@ -98,7 +98,10 @@ Five modules in `src/compono/`, each with a single, non-overlapping job —
 new work almost always touches several of them in the same pattern:
 
 1. **`schema.py`** — pydantic models for the primitive catalog: `header`,
-   `text`, `image`, `stat`, `grid`, `table`, `sequence`, `chart`, `shape`.
+   `text`, `image`, `stat`, `grid`, `table`, `sequence`, `chart`, `shape`,
+   `diagram` (a node-graph flowchart whose nodes/edges are synthesized as
+   `shape` primitives at layout time by `resolver.py`'s `_layout_diagram` —
+   this is why adding it needed no new `render.py` code at all).
    `PrimitiveSpec` is a discriminated union (`Field(discriminator="primitive")`)
    over all of them; `Grid.items` is recursively typed as `list[PrimitiveSpec]`
    (grids can contain any primitive, including other grids), which is why

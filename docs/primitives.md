@@ -16,6 +16,7 @@ references it, e.g. a connector) and an optional `notes` (speaker notes).
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
 | `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id` (routes around any box in between automatically, ends in an arrowhead, and stops just short of the shape rather than touching it). Set `text.color` explicitly against a dark `fill` — `review()`'s contrast check can only evaluate it when both are given. |
+| `diagram` | `nodes` (`{id?, label, kind?, fill?}`), `edges?` (`{from, to}`), `orientation` (vertical/horizontal), `node_kind`, `node_fill` | A node-graph flowchart — the resolver places nodes automatically and routes edges between them (reusing `shape(kind="connector")`'s own obstacle-avoiding routing), instead of hand-placing every node as a `shape` with a manual `id` plus one connector per edge. See below. |
 
 Every schema field's description is written as an instruction (e.g. "Keep
 under ~60 characters — longer titles will be shrunk by the resolver"), not
@@ -103,6 +104,35 @@ itself never needs image-generation capability.
   }]
 }
 ```
+
+### 5. Diagram (auto-connected node graph)
+
+```json
+{
+  "slides": [{
+    "header": { "title": "RAG Pipeline" },
+    "body": [{
+      "primitive": "diagram",
+      "node_fill": "#4F46E5",
+      "nodes": [
+        { "label": "User" },
+        { "label": "Router" },
+        { "label": "Retriever", "fill": "#059669" },
+        { "label": "LLM" },
+        { "label": "Memory", "kind": "oval", "fill": "#F59E0B" }
+      ]
+    }]
+  }]
+}
+```
+
+Omitting `edges` auto-connects nodes in order (a linear chain) — the
+common case. For a branch or a skip-ahead edge, give `nodes` explicit
+`id`s and add `edges: [{"from": "...", "to": "..."}]`; an edge between
+non-adjacent nodes routes around whatever sits between them, the same
+obstacle-avoiding routing `shape(kind="connector")` already uses. See
+`examples/rag_pipeline_diagram.json` for both a linear chain and an
+explicit-edges branch.
 
 See `examples/full_catalog.json` for a complete, runnable spec (also used
 as a test fixture).

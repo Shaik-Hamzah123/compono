@@ -229,6 +229,7 @@ make by composing primitives, not a schema type to pick.
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
 | `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id` (routes around any box in between automatically, ends in an arrowhead, and stops just short of the shape rather than touching it). Set `text.color` explicitly against a dark `fill` — `review_deck`'s contrast check can only evaluate it when both are given. |
+| `diagram` | `nodes` (`{id?, label, kind?, fill?}`), `edges?` (`{from, to}`), `orientation` (vertical/horizontal), `node_kind`, `node_fill` | A node-graph flowchart — nodes are placed automatically and edges routed between them (reusing `shape(kind="connector")`'s own obstacle-avoiding routing). Omit `edges` for an auto-connected linear chain; give nodes explicit `id`s and add `edges` for a branch or a skip-ahead edge. |
 
 ### Image placeholders
 
@@ -310,6 +311,31 @@ image-generation capability just to build the deck.
   }]
 }
 ```
+
+### 5. Diagram (auto-connected node graph)
+
+```json
+{
+  "slides": [{
+    "header": { "title": "RAG Pipeline" },
+    "body": [{
+      "primitive": "diagram",
+      "node_fill": "#4F46E5",
+      "nodes": [
+        { "label": "User" },
+        { "label": "Router" },
+        { "label": "Retriever", "fill": "#059669" },
+        { "label": "LLM" },
+        { "label": "Memory", "kind": "oval", "fill": "#F59E0B" }
+      ]
+    }]
+  }]
+}
+```
+
+Omitting `edges` auto-connects nodes in order (a linear chain). For a
+branch or a skip-ahead edge, give `nodes` explicit `id`s and add
+`edges: [{"from": "...", "to": "..."}]`.
 
 ## Fonts and templates
 
