@@ -49,7 +49,13 @@ A `Section` is `{header_text?: str, footer_text?: str, body: [primitive, ...]}`.
 
 `header`, `text`, `image`, `stat`, `grid`, `table`, `sequence`, `chart`,
 `shape` (including `kind: "connector"`, resolved via a routing pass that
-avoids obstacles).
+avoids obstacles), `diagram` (`nodes` (`{id?, label, kind?, fill?}`),
+`edges?` (`{from, to}`), `orientation` (vertical/horizontal), `node_kind`,
+`node_fill`) — a node-graph flowchart whose nodes are placed automatically
+and edges routed between them, reusing `shape(kind="connector")`'s own
+obstacle-avoiding routing. Omit `edges` for an auto-connected linear chain;
+give nodes explicit `id`s and add `edges` for a branch or a skip-ahead
+edge.
 
 ## Primitive catalog (docx)
 
@@ -75,6 +81,35 @@ avoids obstacles).
   ]
 }
 ```
+
+## Worked example (diagram)
+
+```json
+{
+  "slides": [
+    {
+      "header": { "title": "RAG Pipeline" },
+      "body": [
+        {
+          "primitive": "diagram",
+          "node_fill": "#4F46E5",
+          "nodes": [
+            { "label": "User" },
+            { "label": "Router" },
+            { "label": "Retriever", "fill": "#059669" },
+            { "label": "LLM" },
+            { "label": "Memory", "kind": "oval", "fill": "#F59E0B" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+Omitting `edges` auto-connects nodes in order (a linear chain). For a
+branch or a skip-ahead edge, give `nodes` explicit `id`s and add
+`edges: [{"from": "...", "to": "..."}]`.
 
 ## Worked example (docx)
 

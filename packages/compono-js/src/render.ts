@@ -314,12 +314,18 @@ export async function renderDeck(spec: unknown, outputPath: string, templateOver
       if (rect) renderHeader(pptxSlide, slideSpec.header, rect, template);
     }
 
-    for (const item of walkPrimitives(slideSpec.body)) {
-      const id = item.id ?? [...layout.items.entries()].find(([, v]) => v === item)?.[0];
-      if (!id) continue;
-      const rect = layout.rects.get(id);
-      if (!rect) continue;
-      renderPrimitive(pptxSlide, item, rect, template, slideIndex, id, manifest);
+    // Iterate the resolver's own rects/items maps (the single source of
+    // truth for the id scheme, including synthesized ids like grid
+    // children and diagram nodes) rather than walking the original spec
+    // tree — a diagram's nodes only exist in `layout`, synthesized by
+    // resolveSlide, so walking `slideSpec.body` would silently skip them.
+    const headerId = slideSpec.header ? (slideSpec.header.id ?? "header") : null;
+    for (const [itemId, rect] of layout.rects) {
+      if (itemId === headerId) continue; // header already rendered above
+      const primitive = layout.items.get(itemId);
+      if (!primitive || primitive.primitive === "header") continue;
+      if (primitive.primitive === "shape" && (primitive as Shape).kind === "connector") continue; // drawn below from layout.connectors
+      renderPrimitive(pptxSlide, primitive as PrimitiveSpecT, rect, template, slideIndex, itemId, manifest);
     }
 
     for (const points of layout.connectors.values()) {
@@ -366,7 +372,9 @@ function renderPrimitive(
       renderChart(slide, primitive, rect, template);
       break;
     case "grid":
-      // Grid has no visual of its own — only its (already-flattened) children render.
+    case "diagram":
+      // Grid/Diagram have no visual of their own — only their (already-flattened)
+      // children render (Diagram nodes are synthesized as real Shape instances).
       break;
   }
 }

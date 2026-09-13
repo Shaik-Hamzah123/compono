@@ -8,7 +8,10 @@
  * doubles as in-context documentation, same convention as the Python side.
  *
  * Full v1 catalog: header, text, image, stat, grid, table, sequence, chart,
- * shape.
+ * shape; plus `diagram`, added post-v1 (a node-graph flowchart whose nodes/
+ * edges are synthesized as `shape` primitives at layout time by
+ * resolver.ts's `layoutDiagram` — ported from Python compono's `diagram`
+ * primitive, same design).
  */
 
 import { z } from "zod";
@@ -295,6 +298,83 @@ export const Chart = z
   });
 export type Chart = z.infer<typeof Chart>;
 
+export const DiagramNode = z
+  .object({
+    id: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe(
+        "Stable identifier for this node. Required if an edge needs to reference it " +
+          "explicitly; otherwise nodes can be referenced by their 0-based positional index.",
+      ),
+    label: z.string().describe("Text rendered inside the node's shape."),
+    kind: z
+      .enum(["rect", "rounded_rect", "oval"])
+      .nullable()
+      .default(null)
+      .describe("Shape geometry override for this node. Omit to use the diagram's `node_kind`."),
+    fill: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe("Fill color override for this node, e.g. a hex string. Omit to use the diagram's `node_fill`."),
+  })
+  .strict();
+export type DiagramNode = z.infer<typeof DiagramNode>;
+
+export const DiagramEdge = z
+  .object({
+    from: z
+      .string()
+      .describe("Source node's `id`, or its 0-based positional index as a string."),
+    to: z
+      .string()
+      .describe("Target node's `id`, or its 0-based positional index as a string."),
+  })
+  .strict();
+export type DiagramEdge = z.infer<typeof DiagramEdge>;
+
+export const Diagram = z
+  .object({
+    primitive: z.literal("diagram").default("diagram"),
+    ...primitiveBase,
+    nodes: z.array(DiagramNode).min(1).describe("Nodes in the diagram, in order."),
+    edges: z
+      .array(DiagramEdge)
+      .nullable()
+      .default(null)
+      .describe(
+        "Explicit edges between nodes, each referencing a node's `id` or its 0-based " +
+          "positional index as a string. Omit to auto-connect nodes in order as a linear " +
+          "chain (node[0] -> node[1] -> ...).",
+      ),
+    orientation: z
+      .enum(["vertical", "horizontal"])
+      .default("vertical")
+      .describe("Layout direction nodes are stacked ('vertical') or placed side-by-side ('horizontal') along."),
+    node_kind: z
+      .enum(["rect", "rounded_rect", "oval"])
+      .default("rounded_rect")
+      .describe("Default shape kind for nodes that don't set their own `kind`."),
+    node_fill: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe("Default fill color for nodes that don't set their own `fill`."),
+  })
+  .strict()
+  .refine(
+    (v) => {
+      if (!v.edges) return true;
+      const validRefs = new Set<string>(v.nodes.map((_, i) => String(i)));
+      for (const node of v.nodes) if (node.id) validRefs.add(node.id);
+      return v.edges.every((edge) => validRefs.has(edge.from) && validRefs.has(edge.to));
+    },
+    { message: "edges reference node(s) not present in `nodes` (by id or positional index)." },
+  );
+export type Diagram = z.infer<typeof Diagram>;
+
 // Grid is self-referential (items: PrimitiveSpec[], which includes Grid
 // itself) — z.lazy() plays the role schema.py's forward-ref string +
 // Grid.model_rebuild() plays in pydantic.
@@ -348,9 +428,19 @@ export const Grid = z.lazy(() =>
 // literal still discriminates at runtime), just with less specialized
 // error messages than discriminatedUnion would give.
 export const PrimitiveSpec = z.lazy(() =>
-  z.union([Header, Text, Image, Stat, Grid, Table, Sequence, Chart, Shape]),
+  z.union([Header, Text, Image, Stat, Grid, Table, Sequence, Chart, Shape, Diagram]),
 ) as unknown as z.ZodType<PrimitiveSpecT, z.ZodTypeDef, unknown>;
-export type PrimitiveSpecT = Header | Text | Image | Stat | Grid | Table | Sequence | Chart | Shape;
+export type PrimitiveSpecT =
+  | Header
+  | Text
+  | Image
+  | Stat
+  | Grid
+  | Table
+  | Sequence
+  | Chart
+  | Shape
+  | Diagram;
 
 export const Slide = z
   .object({

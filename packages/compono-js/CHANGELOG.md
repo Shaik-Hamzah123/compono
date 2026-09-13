@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
+## [0.3.0] - 2026-09-13
+
+### Added
+- New `diagram` primitive (node-graph flowcharts), ported from Python
+  compono 0.3.0: `nodes`/`edges` schema (`DiagramNode`/`DiagramEdge`), auto
+  linear-chain edges when `edges` is omitted, per-node `kind`/`fill`
+  overrides falling back to the diagram-level `node_kind`/`node_fill`.
+  `resolver.ts`'s `layoutDiagram` synthesizes each node as a real `Shape`
+  primitive and places it via the existing placement pipeline; edges
+  resolve in a second pass (`resolveDiagramConnectors`) reusing the same
+  obstacle-avoiding `routeConnector` every `shape(kind="connector")`
+  already uses — no new render.ts primitive-rendering code needed, since a
+  diagram node is a real `Shape` by construction (mirrors how `grid` has
+  no visual of its own).
+
+### Fixed
+- `renderDeck`'s per-slide render loop now iterates the resolver's own
+  `layout.rects`/`layout.items` maps instead of walking the original parsed
+  spec tree — the previous walk (`walkPrimitives(slideSpec.body)`) only
+  ever saw primitives present in the input JSON, so it silently skipped
+  any primitive synthesized by the resolver itself (a gap this diagram
+  port would otherwise have hit immediately, since diagram nodes only
+  exist post-layout).
+
 ## [0.2.1] - 2026-09-13
 
 ### Added

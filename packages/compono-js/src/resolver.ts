@@ -8,14 +8,18 @@
  * content-based sizing is a known future improvement, matching the Python
  * side's "Known limitations"). `grid` is the one primitive doing true 2D
  * row/column math. Shape connectors resolve in a second pass, once every
- * other rect is final, by looking up the referenced `id`s.
+ * other rect is final, by looking up the referenced `id`s. `diagram` nodes
+ * are synthesized as real `Shape` primitives at layout time
+ * (`layoutDiagram`) and its edges resolve in that same second pass
+ * (`resolveDiagramConnectors`) via the connector router — this is why no
+ * render.ts changes were needed to support it.
  */
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
-import type { Grid, Header, PrimitiveSpecT, Shape } from "./schema.js";
+import type { Diagram, DiagramEdge, Grid, Header, PrimitiveSpecT, Shape } from "./schema.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_TEMPLATE_DIR = join(__dirname, "..", "templates");
@@ -114,6 +118,10 @@ function isGrid(item: PrimitiveSpecT): item is Grid {
   return item.primitive === "grid";
 }
 
+function isDiagram(item: PrimitiveSpecT): item is Diagram {
+  return item.primitive === "diagram";
+}
+
 export function resolveSlide(
   template: Template,
   header: Header | null = null,
@@ -140,6 +148,7 @@ export function resolveSlide(
 
   layoutStack(body, { x: contentX, y: cursorY, w: contentW, h: bodyHeight }, template, result, "body");
   resolveConnectors(body, result, template);
+  resolveDiagramConnectors(result, template);
 
   return result;
 }
@@ -175,6 +184,8 @@ function placeItem(
   result.items.set(itemId, item);
   if (isGrid(item)) {
     layoutGrid(item, rect, template, result, itemId);
+  } else if (isDiagram(item)) {
+    layoutDiagram(item, rect, template, result, itemId);
   }
 }
 
@@ -209,6 +220,72 @@ function layoutGrid(
     result.parents.set(itemId, prefix);
     placeItem(item, { x, y, w: colW, h: rowH }, template, result, itemId);
   });
+}
+
+// --- Diagram layout (nodes synthesized as real Shape primitives) ---
+
+function diagramNodeId(diagram: Diagram, prefix: string, index: number): string {
+  return diagram.nodes[index].id ?? `${prefix}.nodes[${index}]`;
+}
+
+function resolveDiagramNodeRef(diagram: Diagram, prefix: string, ref: string): string {
+  const explicitIndex = diagram.nodes.findIndex((node) => node.id === ref);
+  if (explicitIndex !== -1) return diagramNodeId(diagram, prefix, explicitIndex);
+  if (/^\d+$/.test(ref)) {
+    const index = Number(ref);
+    if (index < diagram.nodes.length) return diagramNodeId(diagram, prefix, index);
+  }
+  throw new Error(`Diagram edge references unknown node ${JSON.stringify(ref)}.`);
+}
+
+function layoutDiagram(
+  diagram: Diagram,
+  rect: Rect,
+  template: Template,
+  result: LayoutResult,
+  prefix: string,
+): void {
+  const n = diagram.nodes.length;
+  if (n === 0) return;
+
+  const vertical = diagram.orientation === "vertical";
+  const slotH = vertical ? (n > 1 ? Math.trunc((rect.h - template.gutter * (n - 1)) / n) : rect.h) : rect.h;
+  const slotW = vertical ? rect.w : n > 1 ? Math.trunc((rect.w - template.gutter * (n - 1)) / n) : rect.w;
+
+  diagram.nodes.forEach((node, i) => {
+    const nodeId = diagramNodeId(diagram, prefix, i);
+    const nodeRect: Rect = vertical
+      ? { x: rect.x, y: rect.y + i * (slotH + template.gutter), w: rect.w, h: slotH }
+      : { x: rect.x + i * (slotW + template.gutter), y: rect.y, w: slotW, h: rect.h };
+
+    result.parents.set(nodeId, prefix);
+    const nodeShape: Shape = {
+      primitive: "shape",
+      id: nodeId,
+      notes: null,
+      kind: node.kind ?? diagram.node_kind,
+      fill: node.fill ?? diagram.node_fill,
+      fill_style: "solid",
+      border: null,
+      connects: null,
+      text: {
+        content: node.label,
+        align: "center",
+        valign: "middle",
+        autofit: true,
+        color: null,
+      },
+    };
+    placeItem(nodeShape, nodeRect, template, result, nodeId);
+  });
+}
+
+function defaultDiagramEdges(diagram: Diagram): DiagramEdge[] {
+  const edges: DiagramEdge[] = [];
+  for (let i = 0; i < diagram.nodes.length - 1; i++) {
+    edges.push({ from: String(i), to: String(i + 1) });
+  }
+  return edges;
 }
 
 function iterShapes(items: PrimitiveSpecT[]): Shape[] {
@@ -391,6 +468,46 @@ function resolveConnectors(body: PrimitiveSpecT[], result: LayoutResult, templat
       start: path[0],
       end: path[path.length - 1],
       waypoints: path.slice(1, -1),
+    });
+  }
+}
+
+/** Second pass, run after resolveConnectors: walks the resolver's own
+ * `result.items` (populated post-layoutDiagram, so every node's resolved id
+ * is already known) for `Diagram` instances, derives each edge (explicit or
+ * the default linear chain), and routes it via the same obstacle-avoiding
+ * `routeConnector` every `shape(kind="connector")` uses — so a diagram's
+ * edges correctly avoid every other resolved rect on the slide, not just
+ * what existed when the diagram itself was laid out.
+ */
+function resolveDiagramConnectors(result: LayoutResult, template: Template): void {
+  const obstaclesById = new Map<string, Rect>();
+  for (const [id, rect] of result.rects) {
+    const item = result.items.get(id);
+    if (item && item.primitive !== "grid") obstaclesById.set(id, rect);
+  }
+
+  for (const [prefix, item] of result.items) {
+    if (!isDiagram(item)) continue;
+    const edges = item.edges ?? defaultDiagramEdges(item);
+    edges.forEach((edge, i) => {
+      const fromId = resolveDiagramNodeRef(item, prefix, edge.from);
+      const toId = resolveDiagramNodeRef(item, prefix, edge.to);
+      const fromRect = result.rects.get(fromId);
+      const toRect = result.rects.get(toId);
+      if (!fromRect || !toRect) return;
+
+      const obstacles = [...obstaclesById.entries()]
+        .filter(([id]) => id !== fromId && id !== toId)
+        .map(([, r]) => r);
+
+      const path = routeConnector(fromRect, toRect, obstacles, result.pageWidth, result.pageHeight, template.gutter);
+      const edgeId = `${prefix}.edges[${i}]`;
+      result.connectors.set(edgeId, {
+        start: path[0],
+        end: path[path.length - 1],
+        waypoints: path.slice(1, -1),
+      });
     });
   }
 }

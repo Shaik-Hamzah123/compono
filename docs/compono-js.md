@@ -26,10 +26,13 @@ npm install @skhamzah123/compono-js
 
 - **pptx**: the full v1 primitive catalog (`header`, `text`, `image`,
   `stat`, `grid`, `table`, `sequence`, `chart`, `shape` including
-  connector routing), same resolver algorithm (flex-equal body stacking,
-  2D grid math, Liang-Barsky connector-routing with gutter-detour
-  fallback), same overflow validator (real glyph advance widths via
-  `fontkit` in place of `fontTools`).
+  connector routing), plus the post-v1 `diagram` primitive (node-graph
+  flowcharts — `nodes`/`edges`, auto linear-chain if `edges` omitted,
+  per-node style overrides), same resolver algorithm (flex-equal body
+  stacking, 2D grid math, Liang-Barsky connector-routing with gutter-detour
+  fallback — `diagram`'s edges reuse this same router), same overflow
+  validator (real glyph advance widths via `fontkit` in place of
+  `fontTools`).
 - **`review()`**: same 5 categories (contrast, whitespace, image_fit,
   font_size, style), same thresholds — see [API reference](api-reference.md)
   for what each one checks; the Python and JS implementations check

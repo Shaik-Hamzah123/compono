@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Chart, Deck, Grid, Image, Sequence, Table } from "../src/schema.js";
+import { Chart, Deck, Diagram, Grid, Image, Sequence, Table } from "../src/schema.js";
 
 describe("schema", () => {
   it("accepts a minimal valid deck", () => {
@@ -75,5 +75,48 @@ describe("schema", () => {
 
   it("rejects unknown extra fields (strict)", () => {
     expect(() => Deck.parse({ slides: [], unexpected: true })).toThrow();
+  });
+
+  it("accepts a diagram with nodes-only (default linear chain)", () => {
+    const diagram = Diagram.parse({
+      nodes: [{ label: "User" }, { label: "Router" }, { label: "LLM" }],
+    });
+    expect(diagram.edges).toBeNull();
+    expect(diagram.nodes).toHaveLength(3);
+  });
+
+  it("accepts a diagram with explicit edges by id and positional index", () => {
+    const diagram = Diagram.parse({
+      nodes: [{ id: "a", label: "A" }, { label: "B" }, { id: "c", label: "C" }],
+      edges: [
+        { from: "a", to: "1" },
+        { from: "1", to: "c" },
+      ],
+    });
+    expect(diagram.edges).toHaveLength(2);
+  });
+
+  it("accepts per-node kind/fill overrides", () => {
+    const diagram = Diagram.parse({
+      nodes: [{ label: "A", kind: "oval", fill: "#FF0000" }, { label: "B" }],
+      node_kind: "rect",
+    });
+    expect(diagram.nodes[0].kind).toBe("oval");
+    expect(diagram.nodes[0].fill).toBe("#FF0000");
+    expect(diagram.nodes[1].kind).toBeNull();
+    expect(diagram.node_kind).toBe("rect");
+  });
+
+  it("rejects an edge referencing an unknown node", () => {
+    expect(() =>
+      Diagram.parse({
+        nodes: [{ label: "A" }],
+        edges: [{ from: "0", to: "does-not-exist" }],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an empty nodes list", () => {
+    expect(() => Diagram.parse({ nodes: [] })).toThrow();
   });
 });

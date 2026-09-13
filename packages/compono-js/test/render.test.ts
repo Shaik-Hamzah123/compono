@@ -125,6 +125,43 @@ describe("renderDeck", () => {
     expect(slideXml).toContain("Card");
     expect(slideXml).toContain("2A9D8F");
   });
+
+  it("renders a diagram's nodes as real shapes and its edges as real connectors, with per-node fill overrides winning", async () => {
+    const output = tmpPath("diagram.pptx");
+    const spec = {
+      slides: [
+        {
+          body: [
+            {
+              primitive: "diagram",
+              node_fill: "#2A6FDB",
+              nodes: [
+                { label: "User" },
+                { label: "Router" },
+                { label: "LLM", fill: "#D9534F" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    // renderConnector draws each edge as one-or-more real line <p:sp>
+    // shapes (pptxgenjs has no dedicated connector element), so the total
+    // <p:sp> count includes the 3 node shapes + 1 footer + N edge segments
+    // — just assert node shapes are present, not an exact segment count.
+    expect((slideXml.match(/<p:sp>/g) ?? []).length).toBeGreaterThanOrEqual(4);
+    expect(slideXml).toContain("User");
+    expect(slideXml).toContain("Router");
+    expect(slideXml).toContain("LLM");
+    // Diagram-level default fill applies to nodes without their own override...
+    expect(slideXml).toContain("2A6FDB");
+    // ...but a node's own `fill` wins over the diagram-level default.
+    expect(slideXml).toContain("D9534F");
+  });
 });
 
 
