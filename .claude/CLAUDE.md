@@ -25,7 +25,7 @@ make check                  # lint + typecheck + test (same as pre-commit hook)
 make lint                   # uv run ruff check .
 make format                  # uv run ruff format . && ruff check --fix .
 make typecheck               # uv run mypy src
-make test                    # uv run pytest -q
+make test                    # uv run python -m pytest -q
 make build                   # uv build
 ```
 
@@ -36,7 +36,15 @@ Don't hand-edit version pins into `pyproject.toml`; let `uv add` write them.
 If `uv sync`/`uv add` fails with a TLS `UnknownIssuer` error (seen on this
 machine, likely corporate proxy/VPN related), retry with `--system-certs`.
 
-Run a single test: `uv run pytest tests/test_resolver.py::test_grid_row_layout_auto_columns -q`
+If the repo is checked out over a UNC/network path (e.g. editing a WSL
+checkout from Windows) and `uv run pytest` fails importing numpy/matplotlib
+with "DLL load failed" even though the same venv imports them fine in a
+plain Python shell, use `uv run python -m pytest` instead — the `pytest`
+console-script shim's DLL search behavior breaks over such paths; `python
+-m pytest` from the same venv does not. `make test`/`make check` and the
+pre-commit hook already invoke pytest this way.
+
+Run a single test: `uv run python -m pytest tests/test_resolver.py::test_grid_row_layout_auto_columns -q`
 
 CLI (mirrors the public API): `compono validate spec.json` /
 `compono render spec.json -o deck.pptx`

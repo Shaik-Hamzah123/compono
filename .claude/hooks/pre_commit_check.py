@@ -12,6 +12,8 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import tempfile
+from pathlib import Path
 
 
 def main() -> int:
@@ -21,10 +23,21 @@ def main() -> int:
     if "git commit" not in command:
         return 0
 
+    # mypy's cache uses sqlite, which can raise "database is locked" when
+    # the repo is checked out over a UNC/network path (e.g. editing a WSL
+    # checkout from Windows) -- point it at the system temp dir instead of
+    # the repo's own (possibly UNC) .mypy_cache, which sidesteps this on
+    # every platform without hardcoding a machine-specific path.
+    mypy_cache_dir = str(Path(tempfile.gettempdir()) / "compono-mypy-cache")
+
     checks: list[tuple[str, list[str]]] = [
         ("ruff", ["uv", "run", "ruff", "check", "."]),
-        ("mypy", ["uv", "run", "mypy", "src"]),
-        ("pytest", ["uv", "run", "pytest", "-q"]),
+        ("mypy", ["uv", "run", "mypy", "--cache-dir", mypy_cache_dir, "src"]),
+        # `python -m pytest`, not the `pytest` console-script shim: the
+        # shim's DLL search behavior breaks numpy/matplotlib imports when
+        # the repo is checked out over a UNC/network path, even though
+        # plain `python -m pytest` from the same venv works fine.
+        ("pytest", ["uv", "run", "python", "-m", "pytest", "-q"]),
     ]
 
     failures = []

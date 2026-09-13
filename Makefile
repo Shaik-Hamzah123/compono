@@ -14,7 +14,11 @@ typecheck:
 	uv run mypy src packages/compono-mcp/src
 
 test:
-	uv run pytest -q
+	# `python -m pytest`, not the `pytest` console-script shim: the shim's
+	# DLL search behavior breaks numpy/matplotlib imports when the repo is
+	# checked out over a UNC/network path (e.g. Windows -> WSL), even
+	# though plain `python -m pytest` from the same venv works fine.
+	uv run python -m pytest -q
 
 check: lint typecheck test
 
