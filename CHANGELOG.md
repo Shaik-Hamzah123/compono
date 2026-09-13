@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Bundled **Open Sans** (SIL OFL 1.1, `src/compono/fonts/OpenSans-Regular.ttf`
+  + `OFL.txt`) as the overflow validator's glyph-metrics reference font.
+  Every stock template's `font_family` (Calibri/Georgia/Times New
+  Roman/Arial) now resolves to it via `validator.SAFE_FONTS` for overflow
+  measurement — previously `SAFE_FONTS` was empty and validation fell back
+  to whatever system font happened to be present, or was skipped entirely.
+  This bundled font is never written into the output `.pptx`/`.docx`; what
+  actually renders is still controlled solely by the template's
+  `font_family` string, same as before.
+
+### Fixed
+- Font resolution for overflow validation (`render.py`'s
+  `_resolve_font_path`) is now template-aware — it resolves the deck's own
+  `template.font_family` against the bundled font, instead of ignoring
+  `template` entirely and picking an arbitrary system font regardless of
+  which template the deck actually used.
+- Chart axis tick labels, legend, and data labels now render in
+  `template.font_family` (`_render_chart`) instead of the theme default —
+  charts were the one primitive that never received the deck's chosen
+  typeface. Pie charts (no category/value axis in python-pptx) and charts
+  without a legend/enabled data labels are skipped rather than crashing or
+  force-enabling labels that weren't asked for.
+- Table and sequence overflow checking is now per-cell/per-step: each table
+  cell and each sequence step is checked against its own sub-rect of the
+  primitive's box, instead of one combined string of all cells/steps
+  checked against the whole box. The old combined-text heuristic could miss
+  a single overlong cell if the rest of the table was short (false
+  negative), and could also false-positive a table whose combined text
+  looked long but where every individual cell actually fit.
+- `Table.headers`/`Table.rows`/`Sequence.steps` now reject empty lists
+  (`schema.py`) — previously unconstrained, which would have divided by
+  zero in the new per-cell/per-step rect math.
+- `render.py`'s system-font fallback list now includes a macOS path
+  (previously Windows/Linux only); it's last-resort only now that the
+  bundled font covers the common case on every OS.
+
 ## [0.2.1] - 2026-09-12
 
 ### Changed

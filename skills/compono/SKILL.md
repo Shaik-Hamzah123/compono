@@ -350,13 +350,17 @@ fonts live in a reviewed template file, not per-request data.
 
 Overflow checking (`validate`'s layout errors, and the "shrink text on
 overflow" behavior it protects against) reads real glyph advance widths via
-`fonttools` — no rendering required. As of this release, no font is bundled
-into the package yet; validation falls back to a system font if one is
-found, and is skipped — not faked — with a warning if none is available.
-This is independent of `font_family` — overflow metrics don't yet reflect
-the template's chosen typeface (known limitation). A bundled, OFL-licensed
-safe-font list is planned before the first tagged release; this section
-will list it once shipped.
+`fonttools` — no rendering required. compono bundles **Open Sans** (SIL OFL
+1.1, `src/compono/fonts/`) for this: every stock template's `font_family`
+resolves to it when measuring overflow, as a glyph-metrics approximation.
+This bundled font is never written into the output file — the deck itself
+always renders in whatever `font_family` the template names (a plain OOXML
+font-name reference, resolved by the viewer's own installed fonts). Chart
+axis/legend/data-label text also picks up `template.font_family`. Table and
+sequence overflow are checked per-cell/per-step against each cell's own
+sub-rect, not as one combined block of text against the whole box — a
+single overlong cell trips a structured error even if the rest of the
+table/sequence is short.
 
 ## Inspire
 

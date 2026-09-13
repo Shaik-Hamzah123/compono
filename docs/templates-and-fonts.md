@@ -41,13 +41,24 @@ live in a reviewed template file, not agent-request data. So:
 
 Overflow checking (`validate`'s layout errors, and the "shrink text on
 overflow" behavior it protects against) reads real glyph advance widths via
-`fonttools` — no rendering required. As of this release, no font is bundled
-into the package yet (`src/compono/fonts/` is a placeholder); validation
-falls back to a system font if one is found (e.g. `arial.ttf` on Windows),
-and is skipped — not faked — with a warning if none is available. This is
-independent of `font_family` above — overflow metrics don't yet reflect the
-template's chosen typeface (known limitation, see CHANGELOG). A bundled,
-OFL-licensed safe-font list is planned before the first tagged release; this
-section will list it once shipped.
+`fonttools` — no rendering required, and it needs a real font file to read
+those widths from. compono bundles **Open Sans** (SIL OFL 1.1,
+`src/compono/fonts/OpenSans-Regular.ttf` + `OFL.txt`) for exactly this
+purpose. Every stock template's `font_family` (Calibri/Georgia/Times New
+Roman/Arial) resolves to this one bundled file when measuring overflow —
+it's the one real font shipped with the package, used as a glyph-metrics
+approximation across templates.
+
+**This bundled font is never written into the output `.pptx`/`.docx`.**
+What actually renders in the deck is controlled solely by the template's
+`font_family` string (e.g. `"Georgia"`) — a plain OOXML font-name reference,
+resolved by whatever opens the file (PowerPoint, LibreOffice, Word) against
+whatever's installed on *that* machine, exactly like any other font name in
+an Office document. Neither `python-pptx` nor `python-docx` embeds font
+files, and compono doesn't either — bundling Open Sans only gives the
+overflow validator real glyph data to measure against, independent of what
+name ends up in the file. If the bundled file somehow fails to load,
+validation falls back to a system font if one is found, and is skipped —
+never faked — with a warning if none is available either.
 
 

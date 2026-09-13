@@ -2,12 +2,10 @@
 
 Core measurement/wrap/overflow functions are pure and tested against a
 hand-built FontMetrics table — no font file or rendering involved. A small
-integration test at the bottom exercises `load_font_metrics` against a real
-system font when one is available, and is skipped otherwise (no font files
-are bundled into the repo yet).
+integration test at the bottom exercises `load_font_metrics` against the
+bundled reference font (Open Sans, src/compono/fonts/) that every stock
+template's `font_family` resolves to for overflow measurement.
 """
-
-from pathlib import Path
 
 import pytest
 
@@ -116,19 +114,28 @@ def test_resolve_safe_font_returns_none_when_not_in_allowlist() -> None:
     assert resolve_safe_font("SomeRandomFont") is None
 
 
-# --- Optional integration test against a real font file ---
+# --- Integration tests against the bundled reference font ---
 
-_CANDIDATE_SYSTEM_FONTS = [
-    Path("C:/Windows/Fonts/arial.ttf"),
-    Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
-]
-_SYSTEM_FONT = next((p for p in _CANDIDATE_SYSTEM_FONTS if p.exists()), None)
+_STOCK_TEMPLATE_FONT_NAMES = ["Calibri", "Georgia", "Times New Roman", "Arial", "Open Sans"]
 
 
-@pytest.mark.skipif(_SYSTEM_FONT is None, reason="no known system font available for integration test")
-def test_load_font_metrics_from_real_font_file() -> None:
-    assert _SYSTEM_FONT is not None
-    metrics = load_font_metrics(_SYSTEM_FONT)
+@pytest.mark.parametrize("font_name", _STOCK_TEMPLATE_FONT_NAMES)
+def test_resolve_safe_font_resolves_every_stock_template_font(font_name: str) -> None:
+    """Every stock template's `font_family` (templates/*.yaml) must resolve to
+    a real, existing bundled file — this is what backs overflow measurement
+    for that template. It is never the font actually written into a deck's
+    OOXML; only the template's own font_family string is (see
+    docs/templates-and-fonts.md).
+    """
+    path = resolve_safe_font(font_name)
+    assert path is not None
+    assert path.exists()
+
+
+def test_load_font_metrics_from_bundled_font_file() -> None:
+    path = resolve_safe_font("Open Sans")
+    assert path is not None
+    metrics = load_font_metrics(path)
     assert metrics.units_per_em > 0
     assert " " in metrics.advance_widths
     assert metrics.advance_widths[" "] > 0

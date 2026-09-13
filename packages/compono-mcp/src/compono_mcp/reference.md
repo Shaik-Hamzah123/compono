@@ -329,10 +329,15 @@ is no schema field for it — either fall back to an existing template, or
 ## Fonts and overflow validation
 
 Overflow checking reads real glyph advance widths via `fonttools` — no
-rendering required. As of this release, no font is bundled yet; validation
-falls back to a system font if one is found, and is skipped — not faked —
-with a warning if none is available. This is independent of `font_family`
-— overflow metrics don't yet reflect the template's chosen typeface.
+rendering required. compono bundles Open Sans (SIL OFL 1.1,
+`src/compono/fonts/`) for this: every stock template's `font_family`
+resolves to it when measuring overflow. This bundled font is never written
+into the output file — the deck itself always renders in whatever
+`font_family` the template names; compono does not embed font files, only
+measure against one for validation. Chart axis/legend/data-label text also
+picks up `template.font_family`. Table and sequence overflow are checked
+per-cell/per-step against each cell's own sub-rect, not as one combined
+block of text.
 
 ## Inspire
 

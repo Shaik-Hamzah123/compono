@@ -16,11 +16,25 @@ from fontTools.ttLib import TTFont  # type: ignore[import-untyped]  # no stubs p
 
 FONTS_DIR = Path(__file__).parent / "fonts"
 
-# Bundled/verified-present fonts this library will render text with. Anything
-# outside this list is substituted for the template default or flagged.
-# Empty until real font files are bundled (see fonts/.gitkeep) — resolve_safe_font
-# returns None for every name until then, which is the correct/honest behavior.
-SAFE_FONTS: dict[str, str] = {}
+# Maps each stock template's `font_family` name (see templates/*.yaml) to a
+# bundled font file used ONLY to measure overflow (real glyph advance widths
+# via fontTools) — it is never written into the output .pptx/.docx. What
+# actually renders in the deck is controlled solely by `template.font_family`
+# (e.g. "Calibri"), which PowerPoint/Word resolve against whatever's installed
+# on the viewer's machine, same as any other OOXML font-name reference.
+#
+# Every stock template currently maps to the same bundled file (Open Sans,
+# SIL OFL 1.1 — see fonts/OFL.txt) as an approximation: it's the one real
+# font shipped with the package, so overflow math has genuine glyph widths
+# to work with instead of skipping validation entirely. This is deliberately
+# not "the font the deck renders in" — see docs/templates-and-fonts.md.
+SAFE_FONTS: dict[str, str] = {
+    "Calibri": "OpenSans-Regular.ttf",
+    "Georgia": "OpenSans-Regular.ttf",
+    "Times New Roman": "OpenSans-Regular.ttf",
+    "Arial": "OpenSans-Regular.ttf",
+    "Open Sans": "OpenSans-Regular.ttf",
+}
 
 
 @dataclass(frozen=True)
@@ -45,7 +59,9 @@ def load_font_metrics(font_path: Path) -> FontMetrics:
             advance_widths[chr(codepoint)] = hmtx[glyph_name][0]
 
         space_advance = advance_widths.get(" ")
-        default_advance = space_advance if space_advance is not None else round(units_per_em * 0.5)
+        default_advance = (
+            space_advance if space_advance is not None else round(units_per_em * 0.5)
+        )
 
         return FontMetrics(
             advance_widths=advance_widths,
@@ -67,7 +83,9 @@ def _char_width_pt(char: str, metrics: FontMetrics, font_size_pt: float) -> floa
     return raw / metrics.units_per_em * font_size_pt
 
 
-def measure_text_width_pt(text: str, metrics: FontMetrics, font_size_pt: float) -> float:
+def measure_text_width_pt(
+    text: str, metrics: FontMetrics, font_size_pt: float
+) -> float:
     """Sum measured advance widths for `text` at `font_size_pt`, in points."""
     return sum(_char_width_pt(c, metrics, font_size_pt) for c in text)
 
@@ -90,7 +108,9 @@ def wrap_lines(
 
     for word in words:
         word_w = measure_text_width_pt(word, metrics, font_size_pt)
-        candidate_width = word_w if not current_words else current_width + space_w + word_w
+        candidate_width = (
+            word_w if not current_words else current_width + space_w + word_w
+        )
         if current_words and candidate_width > max_width_pt:
             lines.append(" ".join(current_words))
             current_words = [word]
