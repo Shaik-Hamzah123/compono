@@ -6,7 +6,10 @@ instructions to the calling agent, not type labels (section 8, item 2) —
 the schema doubles as in-context documentation.
 
 Full v1 catalog (COMPONO_PLAN.md section 5): header, text, image, stat, grid,
-table, sequence, chart, shape.
+table, sequence, chart, shape; plus `diagram`, added post-v1 (a node-graph
+flowchart whose nodes/edges are synthesized as `shape` primitives at
+layout time, so it renders/overflow-checks through the exact same
+pipeline as a hand-placed shape — no new render code needed).
 """
 
 from __future__ import annotations
@@ -148,6 +151,100 @@ class Shape(PrimitiveBase):
     )
 
 
+class DiagramNode(BaseModel):
+    """One node in a `diagram` — synthesized into a real `shape` at layout
+    time, so it renders through the exact same pipeline as a hand-placed
+    shape (COMPONO_PLAN.md's real-shape invariant applies unchanged).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str | None = Field(
+        default=None,
+        description=(
+            "Stable identifier for this node, for `edges` to reference and for "
+            "shape(kind='connector') elsewhere on the slide to point at. If "
+            "omitted, other nodes/edges must reference this node by its "
+            '0-based position in `nodes` instead (e.g. "0", "1").'
+        ),
+    )
+    label: str = Field(..., description="Text rendered inside the node's shape.")
+    kind: Literal["rect", "rounded_rect", "oval"] | None = Field(
+        default=None,
+        description="Overrides the diagram's `node_kind` for this node only.",
+    )
+    fill: str | None = Field(
+        default=None,
+        description="Overrides the diagram's `node_fill` for this node only.",
+    )
+
+
+class DiagramEdge(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    from_: str = Field(
+        ...,
+        alias="from",
+        description="The edge's source node — its `id`, or its 0-based index in `nodes` if it has none.",
+    )
+    to: str = Field(
+        ...,
+        description="The edge's target node — its `id`, or its 0-based index in `nodes` if it has none.",
+    )
+
+
+class Diagram(PrimitiveBase):
+    """A node-graph flowchart: the resolver places `nodes` automatically
+    (in `orientation` order) and routes `edges` between them using the same
+    obstacle-avoiding connector routing shape(kind='connector') uses —
+    replaces hand-placing every node as a shape with a manual id plus one
+    connector shape per edge.
+    """
+
+    primitive: Literal["diagram"] = "diagram"
+    nodes: list[DiagramNode] = Field(
+        ..., min_length=1, description="Nodes, in `orientation` order."
+    )
+    edges: list[DiagramEdge] | None = Field(
+        default=None,
+        description=(
+            "Connections between nodes. Omit to auto-connect nodes in order "
+            "as a linear chain (nodes[0] -> nodes[1] -> ...)."
+        ),
+    )
+    orientation: Literal["vertical", "horizontal"] = Field(
+        default="vertical",
+        description="Layout direction of the node flow: stacked top-to-bottom, or side-by-side.",
+    )
+    node_kind: Literal["rect", "rounded_rect", "oval"] = Field(
+        default="rounded_rect",
+        description="Default shape kind for nodes that don't set their own `kind`.",
+    )
+    node_fill: str | None = Field(
+        default=None,
+        description="Default fill color for nodes that don't set their own `fill`.",
+    )
+
+    @model_validator(mode="after")
+    def _edges_reference_real_nodes(self) -> Diagram:
+        if self.edges is None:
+            return self
+        valid_refs = {str(i) for i in range(len(self.nodes))} | {
+            node.id for node in self.nodes if node.id is not None
+        }
+        bad = [
+            (edge.from_, edge.to)
+            for edge in self.edges
+            if edge.from_ not in valid_refs or edge.to not in valid_refs
+        ]
+        if bad:
+            raise ValueError(
+                f"edges {bad} reference node(s) not present in `nodes` "
+                "(use a node's `id`, or its 0-based index if it has none)."
+            )
+        return self
+
+
 class Image(PrimitiveBase):
     primitive: Literal["image"] = "image"
     src: str | None = Field(
@@ -277,7 +374,7 @@ class Chart(PrimitiveBase):
 
 
 PrimitiveSpec = Annotated[
-    Union[Header, Text, Image, Stat, "Grid", Table, Sequence, Chart, Shape],
+    Union[Header, Text, Image, Stat, "Grid", Table, Sequence, Chart, Shape, Diagram],
     Field(discriminator="primitive"),
 ]
 

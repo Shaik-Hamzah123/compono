@@ -582,3 +582,51 @@ def test_validate_flags_a_single_overlong_table_cell_even_though_the_combined_te
     assert any(
         e["error"] == "overflow" and e["field"] == "rows[0][2]" for e in report.errors
     )
+
+
+def test_render_deck_diagram_renders_nodes_and_edges_as_real_shapes(
+    tmp_path: Path,
+) -> None:
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Pipeline"},
+                "body": [
+                    {
+                        "primitive": "diagram",
+                        "nodes": [
+                            {"label": "User"},
+                            {"label": "Router"},
+                            {"label": "Retriever", "fill": "#FF0000"},
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    output = tmp_path / "diagram.pptx"
+    render_deck(spec, output)
+
+    prs = Presentation(str(output))
+    slide = next(iter(prs.slides))
+    shape_types = [s.shape_type for s in slide.shapes]
+
+    # Non-negotiable invariant: real, editable shapes only.
+    assert MSO_SHAPE_TYPE.PICTURE not in shape_types
+    # header + 3 nodes + 2 connectors (default linear chain) + footer = 7.
+    assert len(slide.shapes) == 7
+
+    node_texts = {
+        s.text_frame.text for s in slide.shapes if s.has_text_frame and s.text_frame.text
+    }
+    assert {"User", "Router", "Retriever"} <= node_texts
+
+    # A node's own fill override wins over the diagram-level default.
+    retriever = next(
+        s
+        for s in slide.shapes
+        if s.has_text_frame and s.text_frame.text == "Retriever"
+    )
+    assert retriever.fill.fore_color.rgb == RGBColor.from_string("FF0000")

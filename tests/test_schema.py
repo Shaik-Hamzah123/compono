@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from compono.schema import (
     Chart,
+    Diagram,
     Grid,
     Header,
     Image,
@@ -211,3 +212,52 @@ def test_grid_accepts_all_new_primitive_types() -> None:
         ]
     )
     assert len(g.items) == 5
+
+
+def test_diagram_minimal_defaults_to_linear_chain() -> None:
+    d = Diagram(nodes=[{"label": "A"}, {"label": "B"}, {"label": "C"}])
+    assert d.primitive == "diagram"
+    assert d.orientation == "vertical"
+    assert d.node_kind == "rounded_rect"
+    assert d.edges is None
+
+
+def test_diagram_accepts_explicit_edges_by_id() -> None:
+    d = Diagram(
+        nodes=[{"id": "a", "label": "A"}, {"id": "b", "label": "B"}],
+        edges=[{"from": "a", "to": "b"}],
+    )
+    assert d.edges is not None
+    assert d.edges[0].from_ == "a"
+    assert d.edges[0].to == "b"
+
+
+def test_diagram_accepts_explicit_edges_by_positional_index() -> None:
+    d = Diagram(
+        nodes=[{"label": "A"}, {"label": "B"}, {"label": "C"}],
+        edges=[{"from": "0", "to": "2"}],
+    )
+    assert d.edges is not None
+    assert d.edges[0].from_ == "0"
+
+
+def test_diagram_per_node_style_overrides() -> None:
+    d = Diagram(
+        nodes=[{"label": "A", "kind": "oval", "fill": "#FF0000"}, {"label": "B"}],
+        node_kind="rect",
+        node_fill="#00FF00",
+    )
+    assert d.nodes[0].kind == "oval"
+    assert d.nodes[0].fill == "#FF0000"
+    assert d.nodes[1].kind is None  # falls back to node_kind at layout time
+    assert d.node_kind == "rect"
+
+
+def test_diagram_rejects_edge_referencing_unknown_node() -> None:
+    with pytest.raises(ValidationError):
+        Diagram(nodes=[{"label": "A"}], edges=[{"from": "0", "to": "does-not-exist"}])
+
+
+def test_diagram_rejects_empty_nodes() -> None:
+    with pytest.raises(ValidationError):
+        Diagram(nodes=[])

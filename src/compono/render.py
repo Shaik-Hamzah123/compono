@@ -5,7 +5,9 @@ and validate(spec). No client objects, no session lifecycle — both are pure
 functions over a Deck spec (raw dict or a typed Deck).
 
 Full v1 primitive catalog: header, text, image, stat, grid, table, sequence,
-chart, shape (COMPONO_PLAN.md section 5).
+chart, shape (COMPONO_PLAN.md section 5); plus `diagram`, added post-v1
+(a node-graph flowchart whose nodes/edges are synthesized as `shape`
+primitives at layout time — see resolver.py's `_layout_diagram`).
 """
 
 from __future__ import annotations
@@ -450,7 +452,8 @@ def _render_primitive(
         _render_sequence(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Chart):
         _render_chart(pptx_slide, primitive, rect, template)
-    # Grid has no visual of its own — only its (already-flattened) children render.
+    # Grid/Diagram have no visual of their own — only their (already-flattened)
+    # children (Diagram nodes are synthesized as real Shape instances) render.
 
 
 def _render_header(

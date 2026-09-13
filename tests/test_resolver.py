@@ -9,7 +9,7 @@ from compono.resolver import (
     Template,
     resolve_slide,
 )
-from compono.schema import Grid, Header, Shape, Text
+from compono.schema import Diagram, DiagramEdge, Grid, Header, Shape, Text
 
 
 @pytest.fixture
@@ -237,3 +237,108 @@ def test_connector_unknown_id_raises(template: Template) -> None:
 def test_rect_is_a_plain_value_object() -> None:
     r = Rect(1, 2, 3, 4)
     assert (r.x, r.y, r.w, r.h) == (1, 2, 3, 4)
+
+
+def test_diagram_vertical_orientation_stacks_nodes_evenly(template: Template) -> None:
+    diagram = Diagram(nodes=[{"label": "A"}, {"label": "B"}, {"label": "C"}])
+    result = resolve_slide(template, body=[diagram])
+
+    n0, n1, n2 = (result.rects[f"body[0].nodes[{i}]"] for i in range(3))
+    assert n0.h == n1.h == n2.h
+    assert n0.w == n1.w == n2.w
+    assert n1.y == n0.y + n0.h + template.gutter
+    assert n2.y == n1.y + n1.h + template.gutter
+    assert n0.x == n1.x == n2.x
+
+
+def test_diagram_horizontal_orientation_places_nodes_side_by_side(
+    template: Template,
+) -> None:
+    diagram = Diagram(nodes=[{"label": "A"}, {"label": "B"}], orientation="horizontal")
+    result = resolve_slide(template, body=[diagram])
+
+    n0, n1 = result.rects["body[0].nodes[0]"], result.rects["body[0].nodes[1]"]
+    assert n0.y == n1.y
+    assert n0.h == n1.h
+    assert n1.x == n0.x + n0.w + template.gutter
+
+
+def test_diagram_nodes_are_real_shapes_with_label_text(template: Template) -> None:
+    diagram = Diagram(nodes=[{"label": "Router"}, {"label": "Retriever"}])
+    result = resolve_slide(template, body=[diagram])
+
+    node = result.items["body[0].nodes[0]"]
+    assert isinstance(node, Shape)
+    assert node.kind == "rounded_rect"
+    assert node.text is not None
+    assert node.text.content == "Router"
+
+
+def test_diagram_node_parents_point_to_the_diagram(template: Template) -> None:
+    diagram = Diagram(nodes=[{"label": "A"}, {"label": "B"}])
+    result = resolve_slide(template, body=[diagram])
+    assert result.parents["body[0].nodes[0]"] == "body[0]"
+    assert result.parents["body[0].nodes[1]"] == "body[0]"
+
+
+def test_diagram_default_edges_form_a_linear_chain(template: Template) -> None:
+    diagram = Diagram(nodes=[{"label": "A"}, {"label": "B"}, {"label": "C"}])
+    result = resolve_slide(template, body=[diagram])
+
+    assert set(result.connectors.keys()) == {"body[0].edges[0]", "body[0].edges[1]"}
+    n0, n1, _n2 = (result.rects[f"body[0].nodes[{i}]"] for i in range(3))
+    edge0 = result.connectors["body[0].edges[0]"]
+    assert edge0.start == (round(n0.x + n0.w / 2), n0.y + n0.h + GAP)
+    assert edge0.end == (round(n1.x + n1.w / 2), n1.y - GAP)
+
+
+def test_diagram_explicit_edges_by_id(template: Template) -> None:
+    diagram = Diagram(
+        nodes=[{"id": "a", "label": "A"}, {"id": "b", "label": "B"}],
+        edges=[{"from": "a", "to": "b"}],
+    )
+    result = resolve_slide(template, body=[diagram])
+    assert "body[0].edges[0]" in result.connectors
+
+
+def test_diagram_edge_routes_around_an_intervening_node(template: Template) -> None:
+    """An edge between non-adjacent nodes (skipping the middle one) must
+    route around it, not straight through it — same obstacle-avoidance
+    shape(kind='connector') already gets, reused here.
+    """
+    diagram = Diagram(
+        nodes=[
+            {"id": "a", "label": "A"},
+            {"id": "b", "label": "B"},
+            {"id": "c", "label": "C"},
+        ],
+        edges=[{"from": "a", "to": "c"}],
+        orientation="vertical",
+    )
+    result = resolve_slide(template, body=[diagram])
+    edge = result.connectors["body[0].edges[0]"]
+    b_rect = result.rects["b"]
+    path = [edge.start, *edge.waypoints, edge.end]
+    # The direct a->c line would pass straight through b's rect (they're
+    # stacked in a single column) — the router must have detoured instead.
+    assert len(path) > 2 or (
+        path[0][0] != b_rect.x + b_rect.w // 2  # not a straight vertical cut through b
+    )
+
+
+def test_diagram_edge_unknown_node_ref_raises(template: Template) -> None:
+    # Bypasses schema validation (which already forbids this at the schema
+    # layer) via model_construct, to exercise resolver.py's own defensive
+    # check directly.
+    diagram = Diagram.model_construct(
+        primitive="diagram",
+        id=None,
+        notes=None,
+        nodes=Diagram(nodes=[{"label": "A"}]).nodes,
+        edges=[DiagramEdge.model_construct(from_="0", to="does-not-exist")],
+        orientation="vertical",
+        node_kind="rounded_rect",
+        node_fill=None,
+    )
+    with pytest.raises(ValueError, match="unknown node"):
+        resolve_slide(template, body=[diagram])

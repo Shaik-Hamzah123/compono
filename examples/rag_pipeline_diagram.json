@@ -1,0 +1,53 @@
+{
+  "slides": [
+    {
+      "header": {
+        "eyebrow": "AI Architecture",
+        "title": "RAG Pipeline",
+        "subtitle": "How a query flows through the system"
+      },
+      "body": [
+        {
+          "primitive": "diagram",
+          "orientation": "vertical",
+          "node_kind": "rounded_rect",
+          "node_fill": "#4F46E5",
+          "nodes": [
+            { "id": "user", "label": "User" },
+            { "id": "router", "label": "Router" },
+            { "id": "retriever", "label": "Retriever", "fill": "#059669" },
+            { "id": "llm", "label": "LLM" },
+            { "id": "memory", "label": "Memory", "kind": "oval", "fill": "#F59E0B" }
+          ]
+        }
+      ]
+    },
+    {
+      "header": {
+        "eyebrow": "AI Architecture",
+        "title": "Retriever Detail",
+        "subtitle": "A branch alongside the main chain — explicit edges, not just a linear flow"
+      },
+      "body": [
+        {
+          "primitive": "diagram",
+          "orientation": "horizontal",
+          "node_kind": "rounded_rect",
+          "node_fill": "#8B5CF6",
+          "nodes": [
+            { "id": "query", "label": "Query" },
+            { "id": "embed", "label": "Embed" },
+            { "id": "vector-db", "label": "Vector DB", "fill": "#059669" },
+            { "id": "rerank", "label": "Rerank" }
+          ],
+          "edges": [
+            { "from": "query", "to": "embed" },
+            { "from": "embed", "to": "vector-db" },
+            { "from": "vector-db", "to": "rerank" },
+            { "from": "query", "to": "rerank" }
+          ]
+        }
+      ]
+    }
+  ]
+}
