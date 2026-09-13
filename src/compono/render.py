@@ -49,7 +49,6 @@ from compono.schema import (
     Text,
 )
 from compono.validator import (
-    SAFE_FONTS,
     FontMetrics,
     build_overflow_error,
     check_overflow,
@@ -64,12 +63,13 @@ STAT_LABEL_FONT_SIZE_PT = 14
 TABLE_FONT_SIZE_PT = 14
 CAPTION_FONT_SIZE_PT = 12
 
-# Fallback system fonts used only until a real font ships in src/compono/fonts/
-# (SAFE_FONTS in validator.py is still empty). Overflow validation is skipped,
-# not faked, when none of these are found either.
+# Last-resort fallback if the bundled reference font (validator.SAFE_FONTS)
+# somehow fails to load in a given environment. Overflow validation is
+# skipped, not faked, when none of these are found either.
 _FALLBACK_SYSTEM_FONTS = [
     Path("C:/Windows/Fonts/arial.ttf"),
     Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    Path("/System/Library/Fonts/Supplemental/Arial.ttf"),  # macOS
 ]
 
 _SHAPE_KIND_TO_MSO = {
@@ -119,11 +119,16 @@ class RenderReport:
     actual_layout: list[LayoutResult]
 
 
-def _resolve_font_path() -> Path | None:
-    for name in SAFE_FONTS:
-        path = resolve_safe_font(name)
-        if path is not None and path.exists():
-            return path
+def _resolve_font_path(template: Template) -> Path | None:
+    """Pick the font file overflow validation should measure against, for
+    *this* deck's template. v1 decks have exactly one template, so this is a
+    single lookup per validate()/render_deck() call, not per-slide — a future
+    per-slide-template feature would need to move this inside the slide loop
+    instead.
+    """
+    path = resolve_safe_font(template.font_family)
+    if path is not None and path.exists():
+        return path
     return next((p for p in _FALLBACK_SYSTEM_FONTS if p.exists()), None)
 
 
@@ -150,47 +155,93 @@ def _parse_deck(spec: dict[str, Any] | Deck) -> Deck:
         ) from exc
 
 
+def _table_cell_rects(rect: Rect, num_cols: int, num_rows: int) -> list[list[Rect]]:
+    """Even, floor-divided split of the table's overall rect into per-cell
+    boxes — row 0 is the header row. The schema has no per-column-width hint
+    (COMPONO_PLAN.md), so an even split is the accepted v1 approximation;
+    any leftover EMUs from the floor division are simply unassigned padding,
+    not distributed to any particular cell.
+    """
+    col_w = rect.w // num_cols
+    row_h = rect.h // num_rows
+    return [
+        [
+            Rect(x=rect.x + c * col_w, y=rect.y + r * row_h, w=col_w, h=row_h)
+            for c in range(num_cols)
+        ]
+        for r in range(num_rows)
+    ]
+
+
+def _sequence_step_rects(rect: Rect, num_steps: int) -> list[Rect]:
+    """Even, floor-divided split of the sequence's overall rect into one box
+    per step, left-to-right — same accepted v1 approximation as table cells.
+    """
+    step_w = rect.w // num_steps
+    return [
+        Rect(x=rect.x + i * step_w, y=rect.y, w=step_w, h=rect.h)
+        for i in range(num_steps)
+    ]
+
+
 def _extract_text_fields(
     primitive: PrimitiveBase | None,
-) -> list[tuple[str, str, float]]:
-    """(field_name, text, font_size_pt) for every text-bearing field on a primitive.
+    rect: Rect,
+) -> list[tuple[str, str, float, Rect | None]]:
+    """(field_name, text, font_size_pt, sub_rect) for every text-bearing field
+    on a primitive. `sub_rect` is None when the field should be checked
+    against the primitive's own full rect (every primitive below except
+    Table/Sequence); Table/Sequence instead emit one entry per cell/step,
+    each with its own sub-rect, so a single overlong cell/step is caught even
+    when the combined text would have fit the overall box.
 
-    Every entry is checked through the same shared check_overflow/wrap_lines
-    routine (validator.py) — primitives never grow their own wrap logic
-    (COMPONO_PLAN.md section 5, "Text-in-shape").
+    Every entry is still checked through the same shared check_overflow/
+    wrap_lines routine (validator.py) — primitives never grow their own wrap
+    logic (COMPONO_PLAN.md section 5, "Text-in-shape").
     """
     if isinstance(primitive, Header):
-        return [("title", primitive.title, HEADER_FONT_SIZE_PT)]
+        return [("title", primitive.title, HEADER_FONT_SIZE_PT, None)]
     if isinstance(primitive, Text):
         content = (
             primitive.content
             if isinstance(primitive.content, str)
             else " ".join(primitive.content)
         )
-        return [("content", content, BODY_FONT_SIZE_PT)]
+        return [("content", content, BODY_FONT_SIZE_PT, None)]
     if isinstance(primitive, Shape) and primitive.text is not None:
-        return [("text.content", primitive.text.content, BODY_FONT_SIZE_PT)]
+        return [("text.content", primitive.text.content, BODY_FONT_SIZE_PT, None)]
     if isinstance(primitive, Stat):
         return [
-            ("value", primitive.value, STAT_VALUE_FONT_SIZE_PT),
-            ("label", primitive.label, STAT_LABEL_FONT_SIZE_PT),
+            ("value", primitive.value, STAT_VALUE_FONT_SIZE_PT, None),
+            ("label", primitive.label, STAT_LABEL_FONT_SIZE_PT, None),
         ]
     if isinstance(primitive, Table):
-        # A rough combined-text check for v1 — not per-cell overflow yet.
-        combined = (
-            " ".join(primitive.headers)
-            + " "
-            + " ".join(" ".join(row) for row in primitive.rows)
+        num_cols = len(primitive.headers)
+        num_rows = 1 + len(primitive.rows)  # row 0 = headers
+        cell_rects = _table_cell_rects(rect, num_cols, num_rows)
+        fields: list[tuple[str, str, float, Rect | None]] = [
+            (f"headers[{c}]", header, TABLE_FONT_SIZE_PT, cell_rects[0][c])
+            for c, header in enumerate(primitive.headers)
+        ]
+        fields.extend(
+            (f"rows[{r}][{c}]", cell, TABLE_FONT_SIZE_PT, cell_rects[r + 1][c])
+            for r, row in enumerate(primitive.rows)
+            for c, cell in enumerate(row)
         )
-        return [("rows", combined, TABLE_FONT_SIZE_PT)]
+        return fields
     if isinstance(primitive, Sequence):
-        combined = " ".join(
-            f"{step.label}: {step.description}" if step.description else step.label
-            for step in primitive.steps
-        )
-        return [("steps", combined, BODY_FONT_SIZE_PT)]
+        step_rects = _sequence_step_rects(rect, len(primitive.steps))
+        return [
+            (
+                f"steps[{i}]",
+                f"{step.label}: {step.description}" if step.description else step.label,
+                BODY_FONT_SIZE_PT,
+                step_rects[i],
+            )
+            for i, step in enumerate(primitive.steps)
+        ]
     if isinstance(primitive, Image) and primitive.caption:
-        return [("caption", primitive.caption, CAPTION_FONT_SIZE_PT)]
+        return [("caption", primitive.caption, CAPTION_FONT_SIZE_PT, None)]
     return []
 
 
@@ -225,11 +276,12 @@ def _check_slide(
         return layout, errors, warnings
 
     for item_id, rect in layout.rects.items():
-        box_width_pt = Emu(rect.w).pt
-        box_height_pt = Emu(rect.h).pt
-        for field_name, text, font_size_pt in _extract_text_fields(
-            layout.items.get(item_id)
+        for field_name, text, font_size_pt, sub_rect in _extract_text_fields(
+            layout.items.get(item_id), rect
         ):
+            check_rect = sub_rect if sub_rect is not None else rect
+            box_width_pt = Emu(check_rect.w).pt
+            box_height_pt = Emu(check_rect.h).pt
             report = check_overflow(
                 text, font_metrics, font_size_pt, box_width_pt, box_height_pt
             )
@@ -280,7 +332,7 @@ def validate(
     except ValueError as exc:
         return ValidationReport(valid=False, errors=[_unknown_template_error(str(exc))])
 
-    font_path = _resolve_font_path()
+    font_path = _resolve_font_path(resolved_template)
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
 
     all_errors: list[dict[str, Any]] = []
@@ -310,7 +362,7 @@ def render_deck(
     except ValueError as exc:
         raise DeckValidationError([_unknown_template_error(str(exc))]) from exc
 
-    font_path = _resolve_font_path()
+    font_path = _resolve_font_path(resolved_template)
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
 
     layouts: list[LayoutResult] = []
@@ -397,7 +449,7 @@ def _render_primitive(
     elif isinstance(primitive, Sequence):
         _render_sequence(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Chart):
-        _render_chart(pptx_slide, primitive, rect)
+        _render_chart(pptx_slide, primitive, rect, template)
     # Grid has no visual of its own — only its (already-flattened) children render.
 
 
@@ -793,13 +845,15 @@ def _render_sequence(
         )
 
 
-def _render_chart(pptx_slide: Any, chart: Chart, rect: Rect) -> None:
+def _render_chart(
+    pptx_slide: Any, chart: Chart, rect: Rect, template: Template
+) -> None:
     chart_data = CategoryChartData()
     chart_data.categories = chart.categories
     for series in chart.series:
         chart_data.add_series(series.name, series.values)
 
-    pptx_slide.shapes.add_chart(
+    graphic_frame = pptx_slide.shapes.add_chart(
         _CHART_TYPE_TO_XL[chart.chart_type],
         Emu(rect.x),
         Emu(rect.y),
@@ -807,3 +861,30 @@ def _render_chart(pptx_slide: Any, chart: Chart, rect: Rect) -> None:
         Emu(rect.h),
         chart_data,
     )
+    _apply_chart_font(graphic_frame.chart, template)
+
+
+def _apply_chart_font(pptx_chart: Any, template: Template) -> None:
+    """Typeface only (`template.font_family`) — chart text has no existing
+    FONT_SIZE_PT constant of its own, so this leaves size at python-pptx's/
+    PowerPoint's defaults rather than inventing one.
+
+    A pie chart has neither a category nor a value axis (python-pptx raises
+    ValueError for both) — skip rather than force one into existing. Data
+    labels are similarly opt-in: `has_data_labels` defaults to False, and
+    turning them on here would change what actually renders, not just its
+    font, so only style them if the deck already enabled them.
+    """
+    try:
+        pptx_chart.category_axis.tick_labels.font.name = template.font_family
+    except ValueError:
+        pass
+    try:
+        pptx_chart.value_axis.tick_labels.font.name = template.font_family
+    except ValueError:
+        pass
+    if pptx_chart.has_legend:
+        pptx_chart.legend.font.name = template.font_family
+    plot = pptx_chart.plots[0]
+    if plot.has_data_labels:
+        plot.data_labels.font.name = template.font_family

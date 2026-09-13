@@ -136,6 +136,18 @@ def test_table_rejects_mismatched_row_length() -> None:
         Table(headers=["Name", "Score"], rows=[["Alice"]])
 
 
+def test_table_rejects_empty_headers() -> None:
+    # An empty headers list would make the per-cell overflow rect math
+    # (render.py's _table_cell_rects) divide by zero.
+    with pytest.raises(ValidationError):
+        Table(headers=[], rows=[])
+
+
+def test_table_rejects_empty_rows() -> None:
+    with pytest.raises(ValidationError):
+        Table(headers=["Name", "Score"], rows=[])
+
+
 def test_sequence_minimal() -> None:
     seq = Sequence(
         steps=[
@@ -145,6 +157,12 @@ def test_sequence_minimal() -> None:
     )
     assert seq.orientation == "horizontal"
     assert seq.steps[1].description == "Sketch options"
+
+
+def test_sequence_rejects_empty_steps() -> None:
+    # An empty steps list would make _sequence_step_rects divide by zero.
+    with pytest.raises(ValidationError):
+        Sequence(steps=[])
 
 
 def test_chart_minimal() -> None:

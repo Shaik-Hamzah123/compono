@@ -194,9 +194,13 @@ class Stat(PrimitiveBase):
 
 class Table(PrimitiveBase):
     primitive: Literal["table"] = "table"
-    headers: list[str] = Field(..., description="Column headers, in order.")
+    headers: list[str] = Field(
+        ..., min_length=1, description="Column headers, in order."
+    )
     rows: list[list[str]] = Field(
-        ..., description="Row values. Each row must have the same length as headers."
+        ...,
+        min_length=1,
+        description="Row values. Each row must have the same length as headers.",
     )
     emphasis_row: int | None = Field(
         default=None,
@@ -229,7 +233,9 @@ class SequenceStep(BaseModel):
 class Sequence(PrimitiveBase):
     primitive: Literal["sequence"] = "sequence"
     steps: list[SequenceStep] = Field(
-        ..., description="Ordered steps, rendered left-to-right or top-to-bottom."
+        ...,
+        min_length=1,
+        description="Ordered steps, rendered left-to-right or top-to-bottom.",
     )
     orientation: Literal["horizontal", "vertical"] = Field(
         default="horizontal", description="Layout direction of the step sequence."

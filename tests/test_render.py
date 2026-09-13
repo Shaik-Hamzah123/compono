@@ -13,8 +13,17 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 
 from compono.cli import main as cli_main
-from compono.render import DeckValidationError, render_deck, validate
-from compono.resolver import Template
+from compono.render import (
+    DeckValidationError,
+    _extract_text_fields,
+    _resolve_font_path,
+    _sequence_step_rects,
+    _table_cell_rects,
+    render_deck,
+    validate,
+)
+from compono.resolver import Rect, Template
+from compono.schema import Sequence, SequenceStep, Table
 
 EXAMPLES_DIR = Path(__file__).parent.parent / "examples"
 FULL_CATALOG_SPEC = json.loads(
@@ -423,3 +432,153 @@ def test_render_deck_sequence_connectors_run_through_the_gutter_not_the_boxes(
         assert connector.left == box_right_edge
         box_vertical_center = box.top + box.height // 2
         assert connector.top == box_vertical_center
+
+
+# --- Font resolution / chart fonts / per-cell overflow (font+overflow batch) ---
+
+
+@pytest.mark.parametrize("template_name", ["default", "modern", "classic", "clean"])
+def test_resolve_font_path_finds_the_bundled_font_for_every_stock_template(
+    template_name: str,
+) -> None:
+    template = Template.from_name(template_name)
+    path = _resolve_font_path(template)
+    assert path is not None
+    assert path.exists()
+    assert path.name == "OpenSans-Regular.ttf"
+
+
+def test_render_chart_applies_template_font_to_axes(tmp_path: Path) -> None:
+    spec = {
+        "template": "modern",
+        "slides": [
+            {
+                "header": {"title": "Revenue"},
+                "body": [
+                    {
+                        "primitive": "chart",
+                        "chart_type": "bar",
+                        "categories": ["Q1", "Q2"],
+                        "series": [{"name": "Revenue", "values": [10, 14]}],
+                    }
+                ],
+            }
+        ],
+    }
+    output = tmp_path / "chart.pptx"
+    render_deck(spec, output)
+
+    prs = Presentation(str(output))
+    chart = next(
+        shape.chart for slide in prs.slides for shape in slide.shapes if shape.has_chart
+    )
+    assert chart.category_axis.tick_labels.font.name == "Georgia"
+    assert chart.value_axis.tick_labels.font.name == "Georgia"
+
+
+def test_render_pie_chart_does_not_crash_applying_axis_font(tmp_path: Path) -> None:
+    """Pie charts have neither a category nor a value axis in python-pptx —
+    _apply_chart_font must skip them rather than raise.
+    """
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Share"},
+                "body": [
+                    {
+                        "primitive": "chart",
+                        "chart_type": "pie",
+                        "categories": ["A", "B"],
+                        "series": [{"name": "Share", "values": [40, 60]}],
+                    }
+                ],
+            }
+        ]
+    }
+    output = tmp_path / "pie.pptx"
+    render_deck(spec, output)  # must not raise
+    assert output.exists()
+
+
+def test_table_cell_rects_splits_evenly_into_num_cols_by_num_rows() -> None:
+    rect = Rect(x=0, y=0, w=900, h=300)
+    cells = _table_cell_rects(rect, num_cols=3, num_rows=3)
+    assert len(cells) == 3
+    assert all(len(row) == 3 for row in cells)
+    assert cells[0][0] == Rect(x=0, y=0, w=300, h=100)
+    assert cells[1][2] == Rect(x=600, y=100, w=300, h=100)
+
+
+def test_sequence_step_rects_splits_evenly_left_to_right() -> None:
+    rect = Rect(x=0, y=0, w=400, h=100)
+    steps = _sequence_step_rects(rect, num_steps=4)
+    assert steps == [
+        Rect(x=0, y=0, w=100, h=100),
+        Rect(x=100, y=0, w=100, h=100),
+        Rect(x=200, y=0, w=100, h=100),
+        Rect(x=300, y=0, w=100, h=100),
+    ]
+
+
+def test_extract_text_fields_checks_each_table_cell_against_its_own_sub_rect() -> None:
+    """The old combined-text heuristic checked all headers+rows joined
+    against the whole rect — a single overlong cell could be masked by
+    plenty of short cells nearby. Per-cell checking must not do that.
+    """
+    table = Table(headers=["A", "B"], rows=[["short", "short"]])
+    rect = Rect(x=0, y=0, w=1000, h=500)
+    fields = _extract_text_fields(table, rect)
+
+    field_names = {name for name, _, _, _ in fields}
+    assert field_names == {"headers[0]", "headers[1]", "rows[0][0]", "rows[0][1]"}
+
+    for _, _, _, sub_rect in fields:
+        assert sub_rect is not None
+        assert sub_rect.w == 500  # 2 cols
+        assert sub_rect.h == 250  # header row + 1 data row
+
+
+def test_extract_text_fields_checks_each_sequence_step_against_its_own_sub_rect() -> None:
+    sequence = Sequence(
+        steps=[
+            SequenceStep(label="One"),
+            SequenceStep(label="Two"),
+        ],
+        orientation="horizontal",
+    )
+    rect = Rect(x=0, y=0, w=1000, h=500)
+    fields = _extract_text_fields(sequence, rect)
+
+    assert [name for name, _, _, _ in fields] == ["steps[0]", "steps[1]"]
+    for _, _, _, sub_rect in fields:
+        assert sub_rect is not None
+        assert sub_rect.w == 500
+        assert sub_rect.h == 500
+
+
+def test_validate_flags_a_single_overlong_table_cell_even_though_the_combined_text_would_fit(
+) -> None:
+    """Regression test for the actual bug the per-cell fix addresses: many
+    short cells plus one very long cell used to pass because only the
+    combined string was checked against the whole table's rect.
+    """
+    long_cell = "word " * 400  # long enough to overflow a single narrow cell
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Comparison"},
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["A", "B", "C", "D"],
+                        "rows": [["x", "y", long_cell, "z"]],
+                    }
+                ],
+            }
+        ]
+    }
+    report = validate(spec)
+    assert report.valid is False
+    assert any(
+        e["error"] == "overflow" and e["field"] == "rows[0][2]" for e in report.errors
+    )

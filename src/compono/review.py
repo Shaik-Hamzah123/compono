@@ -221,7 +221,7 @@ def review(
     deck = _parse_deck(spec)
     resolved_template = resolve_deck_template(deck, template)
 
-    font_path = _resolve_font_path()
+    font_path = _resolve_font_path(resolved_template)
     font_metrics = load_font_metrics(font_path) if font_path is not None else None
 
     suggestions: list[dict[str, Any]] = []
@@ -279,11 +279,11 @@ def review(
             if s:
                 suggestions.append(s)
 
-            text_fields = list(_extract_text_fields(primitive))
+            text_fields = list(_extract_text_fields(primitive, rect))
 
             # Style checks are pure text-content scans — no font metrics
             # needed, so they run even when overflow checking is skipped.
-            for field_name, text, _font_size_pt in text_fields:
+            for field_name, text, _font_size_pt, _sub_rect in text_fields:
                 s = _check_style(slide_index, item_id, field_name, text)
                 if s:
                     suggestions.append(s)
@@ -292,15 +292,16 @@ def review(
                 skipped_font_check = True
                 continue
 
-            for field_name, text, font_size_pt in text_fields:
+            for field_name, text, font_size_pt, sub_rect in text_fields:
+                check_rect = sub_rect if sub_rect is not None else rect
                 report = check_overflow(
                     text,
                     font_metrics,
                     font_size_pt,
-                    _rect_width_pt(rect),
-                    _rect_height_pt(rect),
+                    _rect_width_pt(check_rect),
+                    _rect_height_pt(check_rect),
                 )
-                box_height_pt = _rect_height_pt(rect)
+                box_height_pt = _rect_height_pt(check_rect)
                 if (
                     not report.overflow
                     and report.total_height_pt > _TIGHT_FIT_FRACTION * box_height_pt
