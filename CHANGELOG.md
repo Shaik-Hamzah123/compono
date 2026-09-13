@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-13
+
+### Added
+- New `diagram` primitive: a node-graph flowchart. `nodes` (each with a
+  `label` and optional `id`/`kind`/`fill` override) are placed
+  automatically along `orientation` (vertical/horizontal); `edges`
+  (`{from, to}`, referencing a node's `id` or its 0-based position)
+  connect them, defaulting to an auto-generated linear chain
+  (`nodes[0] -> nodes[1] -> ...`) if omitted. Replaces hand-placing every
+  node as a `shape` with a manually-assigned `id` plus one
+  `shape(kind="connector")` per edge, the pattern
+  `examples/architecture_diagram.json` still shows for the general
+  branching-graph case this primitive doesn't (yet) auto-layout.
+  Architecturally, a diagram's nodes are synthesized internally as
+  ordinary `shape` primitives and its edges routed via the exact same
+  obstacle-avoiding connector routing `shape(kind="connector")` already
+  uses (`resolver.py`'s `_route_connector`) — so rendering and overflow
+  checking needed zero new `render.py` code, the same trick `grid`
+  already uses (no visual of its own, only its flattened children
+  render). New `examples/rag_pipeline_diagram.json`.
+
 ## [0.2.2] - 2026-09-13
 
 ### Added
