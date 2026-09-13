@@ -214,9 +214,10 @@ export const Table = z
   .object({
     primitive: z.literal("table").default("table"),
     ...primitiveBase,
-    headers: z.array(z.string()).describe("Column headers, in order."),
+    headers: z.array(z.string()).min(1).describe("Column headers, in order."),
     rows: z
       .array(z.array(z.string()))
+      .min(1)
       .describe("Row values. Each row must have the same length as headers."),
     emphasis_row: z
       .number()
@@ -255,6 +256,7 @@ export const Sequence = z
     ...primitiveBase,
     steps: z
       .array(SequenceStep)
+      .min(1)
       .describe("Ordered steps, rendered left-to-right or top-to-bottom."),
     orientation: z
       .enum(["horizontal", "vertical"])

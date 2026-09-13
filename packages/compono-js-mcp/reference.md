@@ -94,12 +94,18 @@ avoids obstacles).
 }
 ```
 
+compono-js bundles Open Sans (SIL OFL 1.1) purely as a glyph-metrics
+reference for overflow measurement — every stock template's `fontFamily`
+resolves to it for that purpose only. It is never written into the output
+file; the deck itself always renders in whatever `fontFamily` the template
+names. Chart axis/legend/data-label text picks up `template.fontFamily`
+too, and table/sequence overflow is checked per-cell/per-step against each
+cell's own sub-rect.
+
 ## Known limitations
 
 - `chart` in docx is a rasterized image, not an editable native Word
   chart — no JS library builds native Word charts either.
-- No bundled font — overflow validation falls back to a system font if
-  found, and is skipped (never faked) with a warning otherwise.
 - Inspire's deck-scanning reads OOXML directly (no npm equivalent to
   python-pptx's read-side object model exists), so it only sees what's
   representable at the XML level (position, fill color, font family/size)

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
+## [0.2.1] - 2026-09-13
+
+### Added
+- Bundled **Open Sans** (SIL OFL 1.1, `fonts/OpenSans-Regular.ttf` +
+  `OFL.txt`) as the overflow validator's glyph-metrics reference font,
+  porting Python compono 0.2.2's font bundling. Every stock template's
+  `fontFamily` resolves to it via `SAFE_FONTS` for overflow measurement;
+  never written into the output file.
+
+### Fixed
+- `resolveFontPath` is now template-aware (`resolveFontPath(template)`)
+  instead of ignoring the template entirely.
+- `renderChart` now applies `template.fontFamily` to chart axis/legend/
+  data-label options (`catAxisLabelFontFace`/`valAxisLabelFontFace`/
+  `legendFontFace`/`dataLabelFontFace`) — previously no font was ever set
+  on chart text.
+- Table and sequence overflow checking is now per-cell/per-step via new
+  `tableCellRects`/`sequenceStepRects` helpers — previously `table`/
+  `sequence` were not checked for overflow at all (`extractTextFields`'s
+  `default` case silently returned `[]` for them, a gap not documented
+  anywhere until now).
+- `Table.headers`/`Table.rows`/`Sequence.steps` now reject empty arrays
+  (`.min(1)`), matching the Python-side schema guard and preventing a
+  divide-by-zero in the new rect-splitting helpers.
+
 ## [0.2.0] - 2026-09-12
 
 ### Added

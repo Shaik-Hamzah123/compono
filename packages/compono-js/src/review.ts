@@ -163,7 +163,7 @@ export function review(spec: unknown, templateOverride?: Template): ReviewReport
   const deck: Deck = parseDeck(spec);
   const template = templateOverride ?? loadTemplateByName(deck.template);
 
-  const fontPath = resolveFontPath();
+  const fontPath = resolveFontPath(template);
   const metrics: FontMetrics | null = fontPath ? loadFontMetrics(fontPath) : null;
 
   const suggestions: Record<string, unknown>[] = [];
@@ -200,7 +200,7 @@ export function review(spec: unknown, templateOverride?: Template): ReviewReport
       const w = checkWhitespace(slideIndex, itemId, rect, isLoneTopLevel);
       if (w) suggestions.push(w);
 
-      const textFields = extractTextFields(primitive as PrimitiveSpecT | Header);
+      const textFields = extractTextFields(primitive as PrimitiveSpecT | Header, rect);
 
       for (const [fieldName, text] of textFields) {
         const s = checkStyle(slideIndex, itemId, fieldName, text);
@@ -212,9 +212,10 @@ export function review(spec: unknown, templateOverride?: Template): ReviewReport
         continue;
       }
 
-      for (const [fieldName, text, fontSizePt] of textFields) {
-        const boxHeightPt = rectHeightPt(rect);
-        const report = checkOverflow(text, metrics, fontSizePt, rectWidthPt(rect), boxHeightPt);
+      for (const [fieldName, text, fontSizePt, subRect] of textFields) {
+        const checkRect = subRect ?? rect;
+        const boxHeightPt = rectHeightPt(checkRect);
+        const report = checkOverflow(text, metrics, fontSizePt, rectWidthPt(checkRect), boxHeightPt);
         if (!report.overflow && report.totalHeightPt > TIGHT_FIT_FRACTION * boxHeightPt) {
           suggestions.push(
             suggestion(

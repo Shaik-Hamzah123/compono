@@ -111,11 +111,22 @@ required to stay in lockstep release-to-release. A spec written for one
 renders correctly through the other. This is real TypeScript, not a
 wrapper or subprocess call into Python.
 
+Overflow checking reads real glyph advance widths via `fontkit` — no
+rendering required. compono-js bundles Open Sans (SIL OFL 1.1,
+`packages/compono-js/fonts/`) for this: every stock template's
+`fontFamily` resolves to it when measuring overflow, the same reference
+font compono's Python side bundles. This bundled font is never written
+into the output file — the deck itself always renders in whatever
+`fontFamily` the template names (a plain OOXML font-name reference,
+resolved by whoever opens the file); compono-js does not embed font files,
+only measure against one for validation. Chart axis/legend/data-label text
+also picks up `template.fontFamily`. Table and sequence overflow are
+checked per-cell/per-step against each cell's own sub-rect, not as one
+combined block of text (previously not checked at all for these two
+primitives).
+
 ## Known limitations
 
-- No bundled font (matches Python `compono`'s current state) — overflow
-  validation falls back to a system font if found, and is skipped (never
-  faked) with a warning otherwise.
 - Inspire's deck-scanning reads OOXML directly, so it only sees what's
   representable at the XML level (position, fill color, font
   family/size) — grouped shapes and some theme-inherited styling aren't

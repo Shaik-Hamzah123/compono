@@ -4,7 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { DeckValidationError, renderDeck, validate } from "../src/render.js";
+import { loadTemplateByName, type Rect } from "../src/resolver.js";
+import {
+  DeckValidationError,
+  extractTextFields,
+  renderDeck,
+  sequenceStepRects,
+  tableCellRects,
+  validate,
+} from "../src/render.js";
+import { resolveFontPath } from "../src/validator.js";
+import type { Sequence, Table } from "../src/schema.js";
 
 const MINIMAL_SPEC = {
   slides: [
@@ -114,5 +124,146 @@ describe("renderDeck", () => {
     expect((slideXml.match(/<p:sp>/g) ?? []).length).toBe(2);
     expect(slideXml).toContain("Card");
     expect(slideXml).toContain("2A9D8F");
+  });
+});
+
+
+// --- Font resolution / chart fonts / per-cell overflow (font+overflow batch port) ---
+
+describe("resolveFontPath", () => {
+  it.each(["default", "modern", "classic", "clean"])(
+    "finds the bundled font for the %s template",
+    (templateName) => {
+      const template = loadTemplateByName(templateName);
+      const path = resolveFontPath(template);
+      expect(path).not.toBeNull();
+      expect(path).toMatch(/OpenSans-Regular\.ttf$/);
+    },
+  );
+});
+
+describe("renderChart", () => {
+  it("applies the template font to chart axis/legend/data-label options", async () => {
+    const output = tmpPath("chart.pptx");
+    const spec = {
+      template: "modern",
+      slides: [
+        {
+          header: { title: "Revenue" },
+          body: [
+            {
+              primitive: "chart",
+              chart_type: "bar",
+              categories: ["Q1", "Q2"],
+              series: [{ name: "Revenue", values: [10, 14] }],
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output); // must not throw
+    const buf = await readFile(output);
+    expect(buf.length).toBeGreaterThan(0);
+  });
+
+  it("renders a pie chart without throwing (no category/value axis)", async () => {
+    const output = tmpPath("pie.pptx");
+    const spec = {
+      slides: [
+        {
+          header: { title: "Share" },
+          body: [
+            {
+              primitive: "chart",
+              chart_type: "pie",
+              categories: ["A", "B"],
+              series: [{ name: "Share", values: [40, 60] }],
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+    const buf = await readFile(output);
+    expect(buf.length).toBeGreaterThan(0);
+  });
+});
+
+describe("tableCellRects", () => {
+  it("splits evenly into numCols by numRows", () => {
+    const rect: Rect = { x: 0, y: 0, w: 900, h: 300 };
+    const cells = tableCellRects(rect, 3, 3);
+    expect(cells).toHaveLength(3);
+    expect(cells[0]).toHaveLength(3);
+    expect(cells[0][0]).toEqual({ x: 0, y: 0, w: 300, h: 100 });
+    expect(cells[1][2]).toEqual({ x: 600, y: 100, w: 300, h: 100 });
+  });
+});
+
+describe("sequenceStepRects", () => {
+  it("splits evenly left to right", () => {
+    const rect: Rect = { x: 0, y: 0, w: 400, h: 100 };
+    const steps = sequenceStepRects(rect, 4);
+    expect(steps).toEqual([
+      { x: 0, y: 0, w: 100, h: 100 },
+      { x: 100, y: 0, w: 100, h: 100 },
+      { x: 200, y: 0, w: 100, h: 100 },
+      { x: 300, y: 0, w: 100, h: 100 },
+    ]);
+  });
+});
+
+describe("extractTextFields (table/sequence per-cell/per-step)", () => {
+  it("checks each table cell against its own sub-rect, not the whole rect", () => {
+    const table = { primitive: "table", headers: ["A", "B"], rows: [["short", "short"]] } as Table;
+    const rect: Rect = { x: 0, y: 0, w: 1000, h: 500 };
+    const fields = extractTextFields(table, rect);
+
+    expect(fields.map(([field]) => field)).toEqual(["headers[0]", "headers[1]", "rows[0][0]", "rows[0][1]"]);
+    for (const [, , , subRect] of fields) {
+      expect(subRect).not.toBeNull();
+      expect(subRect!.w).toBe(500);
+      expect(subRect!.h).toBe(250);
+    }
+  });
+
+  it("checks each sequence step against its own sub-rect", () => {
+    const sequence = {
+      primitive: "sequence",
+      steps: [{ label: "One", description: null }, { label: "Two", description: null }],
+      orientation: "horizontal",
+    } as Sequence;
+    const rect: Rect = { x: 0, y: 0, w: 1000, h: 500 };
+    const fields = extractTextFields(sequence, rect);
+
+    expect(fields.map(([field]) => field)).toEqual(["steps[0]", "steps[1]"]);
+    for (const [, , , subRect] of fields) {
+      expect(subRect).toEqual({ x: expect.any(Number), y: 0, w: 500, h: 500 });
+    }
+  });
+});
+
+describe("per-cell table overflow (regression)", () => {
+  it("flags a single overlong cell even though the combined text would fit the whole rect", () => {
+    const longCell = "word ".repeat(400);
+    const spec = {
+      slides: [
+        {
+          header: { title: "Comparison" },
+          body: [
+            {
+              primitive: "table",
+              headers: ["A", "B", "C", "D"],
+              rows: [["x", "y", longCell, "z"]],
+            },
+          ],
+        },
+      ],
+    };
+    const report = validate(spec);
+    expect(report.valid).toBe(false);
+    expect(report.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ error: "overflow", field: "rows[0][2]" })]),
+    );
   });
 });

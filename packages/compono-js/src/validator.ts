@@ -4,13 +4,13 @@
  *
  * fontkit reads glyph advance widths directly from a font file (no
  * rendering), the same approach as the Python side's hmtx/cmap access.
- * SAFE_FONTS starts empty here too — no font ships with this package yet,
- * so overflow validation is skipped (never faked) with a warning if no
- * system font is found.
  */
 
 import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { openSync as openFontSync } from "fontkit";
+import type { Template } from "./resolver.js";
 
 export interface FontMetrics {
   advanceWidths: Map<string, number>;
@@ -18,10 +18,32 @@ export interface FontMetrics {
   defaultAdvance: number;
 }
 
-export const SAFE_FONTS: string[] = [];
+const __dirname = dirname(fileURLToPath(import.meta.url));
+export const FONTS_DIR = join(__dirname, "..", "fonts");
 
-export function resolveSafeFont(_name: string): string | null {
-  return null;
+// Maps each stock template's `fontFamily` name (see templates/*.yaml) to a
+// bundled font file used ONLY to measure overflow (real glyph advance
+// widths via fontkit) — it is never written into the output .pptx/.docx.
+// What actually renders in the deck is controlled solely by
+// `template.fontFamily`, which PowerPoint/Word resolve against whatever's
+// installed on the viewer's machine, same as any other OOXML font-name
+// reference.
+//
+// Every stock template currently maps to the same bundled file (Open Sans,
+// SIL OFL 1.1 — see fonts/OFL.txt) as an approximation: it's the one real
+// font shipped with the package, so overflow math has genuine glyph widths
+// to work with instead of skipping validation entirely.
+export const SAFE_FONTS: Record<string, string> = {
+  Calibri: "OpenSans-Regular.ttf",
+  Georgia: "OpenSans-Regular.ttf",
+  "Times New Roman": "OpenSans-Regular.ttf",
+  Arial: "OpenSans-Regular.ttf",
+  "Open Sans": "OpenSans-Regular.ttf",
+};
+
+export function resolveSafeFont(name: string): string | null {
+  const filename = SAFE_FONTS[name];
+  return filename ? join(FONTS_DIR, filename) : null;
 }
 
 export function loadFontMetrics(fontPath: string): FontMetrics {
@@ -129,15 +151,21 @@ export function buildOverflowError(
   };
 }
 
+// Last-resort fallback if the bundled reference font (SAFE_FONTS) somehow
+// fails to load in a given environment. Overflow validation is skipped,
+// not faked, when none of these are found either.
 const FALLBACK_SYSTEM_FONTS = [
   "C:/Windows/Fonts/arial.ttf",
   "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+  "/System/Library/Fonts/Supplemental/Arial.ttf", // macOS
 ];
 
-export function resolveFontPath(): string | null {
-  for (const name of SAFE_FONTS) {
-    const path = resolveSafeFont(name);
-    if (path && existsSync(path)) return path;
-  }
+/** Pick the font file overflow validation should measure against, for
+ * *this* deck's template. v1 decks have exactly one template, so this is a
+ * single lookup per validate()/renderDeck() call, not per-slide.
+ */
+export function resolveFontPath(template: Template): string | null {
+  const path = resolveSafeFont(template.fontFamily);
+  if (path && existsSync(path)) return path;
   return FALLBACK_SYSTEM_FONTS.find((p) => existsSync(p)) ?? null;
 }

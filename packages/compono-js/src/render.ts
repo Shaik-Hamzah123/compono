@@ -43,7 +43,7 @@ import {
   type Rect,
   type Template,
 } from "./resolver.js";
-import { Deck, type Chart, type Header, type PrimitiveSpecT, type Shape, type Stat, type Table, type Text } from "./schema.js";
+import { Deck, type Chart, type Header, type PrimitiveSpecT, type Sequence, type Shape, type Stat, type Table, type Text } from "./schema.js";
 import { buildOverflowError, checkOverflow, loadFontMetrics, resolveFontPath, type FontMetrics } from "./validator.js";
 
 const HEADER_FONT_SIZE_PT = 28;
@@ -96,23 +96,91 @@ export function parseDeck(spec: unknown): Deck {
   return result.data;
 }
 
+/** Even, floor-divided split of the table's overall rect into per-cell
+ * boxes — row 0 is the header row. The schema has no per-column-width hint,
+ * so an even split is the accepted v1 approximation; any leftover EMUs
+ * from the floor division are simply unassigned padding, not distributed
+ * to any particular cell.
+ */
+export function tableCellRects(rect: Rect, numCols: number, numRows: number): Rect[][] {
+  const colW = Math.trunc(rect.w / numCols);
+  const rowH = Math.trunc(rect.h / numRows);
+  return Array.from({ length: numRows }, (_, r) =>
+    Array.from({ length: numCols }, (_, c) => ({
+      x: rect.x + c * colW,
+      y: rect.y + r * rowH,
+      w: colW,
+      h: rowH,
+    })),
+  );
+}
+
+/** Even, floor-divided split of the sequence's overall rect into one box
+ * per step, left-to-right — same accepted v1 approximation as table cells.
+ */
+export function sequenceStepRects(rect: Rect, numSteps: number): Rect[] {
+  const stepW = Math.trunc(rect.w / numSteps);
+  return Array.from({ length: numSteps }, (_, i) => ({
+    x: rect.x + i * stepW,
+    y: rect.y,
+    w: stepW,
+    h: rect.h,
+  }));
+}
+
+/** (field, text, fontSizePt, subRect) for every text-bearing field on a
+ * primitive. `subRect` is null when the field should be checked against the
+ * primitive's own full rect (every case below except table/sequence);
+ * table/sequence instead emit one entry per cell/step, each with its own
+ * sub-rect, so a single overlong cell/step is caught even when the
+ * combined text would have fit the overall box.
+ */
 export function extractTextFields(
   primitive: PrimitiveSpecT | Header,
-): [string, string, number][] {
+  rect: Rect,
+): [string, string, number, Rect | null][] {
   switch (primitive.primitive) {
     case "header":
-      return [["title", primitive.title, HEADER_FONT_SIZE_PT]];
+      return [["title", primitive.title, HEADER_FONT_SIZE_PT, null]];
     case "text": {
       const content = Array.isArray(primitive.content) ? primitive.content.join("\n") : primitive.content;
-      return [["content", content, BODY_FONT_SIZE_PT]];
+      return [["content", content, BODY_FONT_SIZE_PT, null]];
     }
     case "stat":
       return [
-        ["value", primitive.value, STAT_VALUE_FONT_SIZE_PT],
-        ["label", primitive.label, STAT_LABEL_FONT_SIZE_PT],
+        ["value", primitive.value, STAT_VALUE_FONT_SIZE_PT, null],
+        ["label", primitive.label, STAT_LABEL_FONT_SIZE_PT, null],
       ];
     case "shape":
-      return primitive.text ? [["text.content", primitive.text.content, BODY_FONT_SIZE_PT]] : [];
+      return primitive.text ? [["text.content", primitive.text.content, BODY_FONT_SIZE_PT, null]] : [];
+    case "table": {
+      const table = primitive as Table;
+      const numCols = table.headers.length;
+      const numRows = 1 + table.rows.length; // row 0 = headers
+      const cellRects = tableCellRects(rect, numCols, numRows);
+      const fields: [string, string, number, Rect | null][] = table.headers.map((header, c) => [
+        `headers[${c}]`,
+        header,
+        TABLE_FONT_SIZE_PT,
+        cellRects[0][c],
+      ]);
+      table.rows.forEach((row, r) => {
+        row.forEach((cell, c) => {
+          fields.push([`rows[${r}][${c}]`, cell, TABLE_FONT_SIZE_PT, cellRects[r + 1][c]]);
+        });
+      });
+      return fields;
+    }
+    case "sequence": {
+      const sequence = primitive as Sequence;
+      const stepRects = sequenceStepRects(rect, sequence.steps.length);
+      return sequence.steps.map((step, i) => [
+        `steps[${i}]`,
+        step.description ? `${step.label}: ${step.description}` : step.label,
+        BODY_FONT_SIZE_PT,
+        stepRects[i],
+      ]);
+    }
     default:
       return [];
   }
@@ -148,9 +216,10 @@ function checkSlideOverflow(
   for (const [id, rect] of result.rects) {
     const primitive = result.items.get(id);
     if (!primitive) continue;
-    for (const [field, text, fontSizePt] of extractTextFields(primitive)) {
-      const boxWidthPt = emuToIn(rect.w) * 72;
-      const boxHeightPt = emuToIn(rect.h) * 72;
+    for (const [field, text, fontSizePt, subRect] of extractTextFields(primitive, rect)) {
+      const checkRect = subRect ?? rect;
+      const boxWidthPt = emuToIn(checkRect.w) * 72;
+      const boxHeightPt = emuToIn(checkRect.h) * 72;
       const report = checkOverflow(text, metrics, fontSizePt, boxWidthPt, boxHeightPt);
       if (report.overflow) {
         errors.push(buildOverflowError(slideIndex, id, field, report, fontSizePt));
@@ -192,7 +261,7 @@ export function validate(spec: unknown, templateOverride?: Template): Validation
     };
   }
 
-  const fontPath = resolveFontPath();
+  const fontPath = resolveFontPath(template);
   let metrics: FontMetrics | null = null;
   if (fontPath) {
     metrics = loadFontMetrics(fontPath);
@@ -294,7 +363,7 @@ function renderPrimitive(
       renderSequence(slide, primitive, rect, template);
       break;
     case "chart":
-      renderChart(slide, primitive, rect);
+      renderChart(slide, primitive, rect, template);
       break;
     case "grid":
       // Grid has no visual of its own — only its (already-flattened) children render.
@@ -586,14 +655,25 @@ const CHART_TYPE_TO_PPTX: Record<string, string> = {
   pie: "pie",
 };
 
-function renderChart(slide: PptxSlideLike, chart: Chart, rect: Rect): void {
+function renderChart(slide: PptxSlideLike, chart: Chart, rect: Rect, template: Template): void {
   const box = rectIn(rect);
   const data = chart.series.map((series) => ({
     name: series.name,
     labels: chart.categories,
     values: series.values,
   }));
-  slide.addChart(CHART_TYPE_TO_PPTX[chart.chart_type], data, { ...box });
+  // Typeface only (template.fontFamily) — no existing FONT_SIZE_PT constant
+  // covers charts, so size stays at pptxgenjs's own defaults. Unlike
+  // python-pptx, pptxgenjs's flat chart options don't throw for a chart
+  // type that lacks a given element (e.g. a pie chart has no axes) — they
+  // simply go unused, so no per-chart-type guard is needed here.
+  slide.addChart(CHART_TYPE_TO_PPTX[chart.chart_type], data, {
+    ...box,
+    catAxisLabelFontFace: template.fontFamily,
+    valAxisLabelFontFace: template.fontFamily,
+    legendFontFace: template.fontFamily,
+    dataLabelFontFace: template.fontFamily,
+  });
 }
 
 function renderFooter(slide: PptxSlideLike, template: Template, slideNumber: number, totalSlides: number): void {

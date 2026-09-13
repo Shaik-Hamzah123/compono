@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Chart, Deck, Grid, Image, Table } from "../src/schema.js";
+import { Chart, Deck, Grid, Image, Sequence, Table } from "../src/schema.js";
 
 describe("schema", () => {
   it("accepts a minimal valid deck", () => {
@@ -17,6 +17,20 @@ describe("schema", () => {
   it("accepts a table with matching rows", () => {
     const table = Table.parse({ headers: ["A", "B"], rows: [["1", "2"]] });
     expect(table.rows).toEqual([["1", "2"]]);
+  });
+
+  it("rejects an empty headers list", () => {
+    // Would divide by zero in render.ts's tableCellRects otherwise.
+    expect(() => Table.parse({ headers: [], rows: [] })).toThrow();
+  });
+
+  it("rejects an empty rows list", () => {
+    expect(() => Table.parse({ headers: ["A", "B"], rows: [] })).toThrow();
+  });
+
+  it("rejects an empty sequence steps list", () => {
+    // Would divide by zero in render.ts's sequenceStepRects otherwise.
+    expect(() => Sequence.parse({ steps: [] })).toThrow();
   });
 
   it("requires src or placeholder on image", () => {

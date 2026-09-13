@@ -1,6 +1,6 @@
 {
   "name": "@skhamzah123/compono-js",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Agent-oriented, code-based PPTX/DOCX generation for TypeScript/JS — typed primitives, no raw coordinates.",
   "type": "module",
   "license": "MIT",
@@ -15,7 +15,8 @@
   },
   "files": [
     "dist",
-    "templates"
+    "templates",
+    "fonts"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
