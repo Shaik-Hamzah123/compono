@@ -34,3 +34,19 @@ otherwise it uses PowerPoint's own default shape fill.
 For a step sequence with real branching (not a straight line) or a
 graph of many-to-many connections, use [`diagram`](diagram.md) instead —
 `sequence` is specifically the single-line-of-steps case.
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```

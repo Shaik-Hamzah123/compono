@@ -38,3 +38,25 @@ Overflow (text too big for its resolved box) is checked via real glyph
 advance widths from the active template's font — never faked, never
 silently shrunk below a readable size. See
 [templates-and-fonts.md](../templates-and-fonts.md).
+
+## Using this spec
+
+A primitive like the bullets example above goes in a slide's `body`:
+
+```json
+{ "slides": [{ "header": { "title": "Why compono" }, "body": [ /* the text primitive above */ ] }] }
+```
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```

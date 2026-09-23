@@ -33,6 +33,22 @@ the fixed header band, so it renders as a real title/section/closing
 slide — vertically centered on the page — rather than a mostly-empty page
 with a short strip of text at the top.
 
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```
+
 ## Branding
 
 If the active template sets a `logo` (see [templates-and-fonts.md](../templates-and-fonts.md)),

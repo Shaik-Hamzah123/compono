@@ -63,3 +63,19 @@ A `grid` has no visual of its own — only its flattened children render.
 `review()` treats a lone top-level grid with more than one child as a
 deliberate, already-full layout (a card grid, a stat row), never flagged
 as sparse whitespace even though it's the only item in `body`.
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```

@@ -65,3 +65,19 @@ For a branch or a skip-ahead edge, give `nodes` explicit `id`s and add
 between them — the router detours automatically. See
 `examples/rag_pipeline_diagram.json` in the repo for both patterns in
 full, runnable specs.
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```

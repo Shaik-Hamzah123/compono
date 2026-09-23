@@ -32,5 +32,10 @@ under ~60 characters — longer titles will be shrunk by the resolver"), not
 a bare type label — call `Header.model_json_schema()` (or any primitive
 class) to get the full JSON Schema with these descriptions inline.
 
+Every page's spec is plain JSON — each ends with a "Using this spec"
+section showing the exact same object passed to Python's `render_deck`
+and JS/TS's `renderDeck` (`@skhamzah123/compono-js`), since the two
+implementations share one primitive-JSON contract.
+
 See `examples/full_catalog.json` in the repo for a complete, runnable spec
 touching every primitive (also used as a test fixture).

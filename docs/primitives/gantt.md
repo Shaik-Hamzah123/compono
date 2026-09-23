@@ -57,3 +57,19 @@ spec (with a header).
 If you need per-cell text inside a task's span (not just a solid color),
 or dependency arrows, build the timeline directly with a `table` +
 `cell_fills`/`merges` instead — see [`table`](table.md).
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```

@@ -54,3 +54,19 @@ and `text.color` are set; it never guesses a color that wasn't provided.
 Hand-placing several shapes plus one connector per edge is exactly what
 [`diagram`](diagram.md) automates — reach for it once you have more than
 a couple of connected nodes.
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```

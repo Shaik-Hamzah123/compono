@@ -82,3 +82,24 @@ span, not just a solid fill).
 already cramped for its box (`table_density` category) — before any cell's
 text technically overflows. Fix by reducing rows/columns, shrinking the
 table's font, or splitting the data across two tables/slides.
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```
+
+Same JSON, same result — `merges` renders identically either way, even
+though the two implementations get there differently under the hood
+(python-pptx's `cell.merge()` vs. compono-js expressing the merge as
+`colspan`/`rowspan` on the origin cell).

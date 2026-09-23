@@ -44,3 +44,28 @@ capability just to build the deck's structure.
 `review()` flags a real image (not a placeholder) whose aspect ratio
 diverges sharply from its resolved box under the chosen `fit` — a likely
 bad crop (`cover`) or large empty bars (`contain`).
+
+## Using this spec
+
+Reading `report.manifest`/`report.pptx_path` (Python) or
+`report.manifest`/`report.pptxPath` (JS/TS) is how a later pass locates
+each placeholder's reserved rect:
+
+**Python:**
+
+```python
+from compono import render_deck
+report = render_deck(spec, "deck.pptx")
+for entry in report.manifest:
+    print(entry["slide"], entry["rect"], entry["caption"])
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+const report = await renderDeck(spec, "deck.pptx");
+for (const entry of report.manifest) {
+  console.log(entry.slide, entry.rect, entry.caption);
+}
+```

@@ -43,3 +43,19 @@ PowerPoint's own default palette regardless of the active template.
 
 For a Gantt/timeline chart, `chart_type` has no dedicated type — see
 [`gantt`](gantt.md), built on `table` instead.
+
+## Using this spec
+
+**Python:**
+
+```python
+from compono import render_deck
+render_deck(spec, "deck.pptx")
+```
+
+**JS/TS:**
+
+```ts
+import { renderDeck } from "@skhamzah123/compono-js";
+await renderDeck(spec, "deck.pptx");
+```
