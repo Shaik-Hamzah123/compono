@@ -20,12 +20,15 @@ import yaml
 
 from compono.schema import (
     Diagram,
+    Gantt,
     Grid,
     Header,
     PrimitiveBase,
     PrimitiveSpec,
     Shape,
     ShapeText,
+    Table,
+    TableCellFill,
 )
 
 EMU_PER_INCH = 914400
@@ -224,6 +227,8 @@ def _place_item(
         _layout_grid(item, rect, template, result, item_id)
     elif isinstance(item, Diagram):
         _layout_diagram(item, rect, template, result, item_id)
+    elif isinstance(item, Gantt):
+        _layout_gantt(item, rect, template, result, item_id)
 
 
 def _resolve_grid_columns(grid: Grid, n: int) -> int:
@@ -324,6 +329,33 @@ def _layout_diagram(
         _place_item(
             synthetic_shape, Rect(x, y, col_w, row_h), template, result, node_id
         )
+
+
+def _layout_gantt(
+    gantt: Gantt,
+    rect: Rect,
+    template: Template,
+    result: LayoutResult,
+    item_id: str,
+) -> None:
+    """A Gantt/timeline chart collapses into a single synthesized `table`
+    at the gantt's own id — one row per task, one column per time unit
+    (plus a leading task-label column), with each task's active span
+    colored via `table.cell_fills`. Unlike `_layout_diagram` (which places
+    several *child* shapes under the diagram's id), this fully replaces
+    the `Gantt` entry in `result.items[item_id]` with the synthesized
+    `Table` — real-shape invariant applies unchanged, and render.py never
+    needs to know `gantt` exists at all.
+    """
+    headers = ["Task", *gantt.unit_labels]
+    rows = [[task.label, *([""] * len(gantt.unit_labels))] for task in gantt.tasks]
+    cell_fills = [
+        TableCellFill(row=r, col=c + 1, fill=task.fill or gantt.task_fill)
+        for r, task in enumerate(gantt.tasks)
+        for c in range(task.start_unit, task.start_unit + task.duration_units)
+    ]
+    synthetic_table = Table(headers=headers, rows=rows, cell_fills=cell_fills)
+    _place_item(synthetic_table, rect, template, result, item_id)
 
 
 def _resolve_diagram_connectors(result: LayoutResult, template: Template) -> None:

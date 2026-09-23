@@ -50,7 +50,7 @@ has no built-in knowledge of compono's primitives or conventions.
 Two ways it can still self-serve, depending on what access it has:
 - **Code-exec access**: the schema is deliberately self-documenting — every
   field's `description` is agent-facing prose, not a bare type label (see
-  [Primitives](primitives.md)). `Deck.model_json_schema()` or
+  [Primitives](primitives/README.md)). `Deck.model_json_schema()` or
   `help(compono.Header)` gets real guidance without needing this file at all.
 - **Shell access, no code-exec**: `compono reference` (or
   `python -c "import compono; print(compono.reference())"`) prints this

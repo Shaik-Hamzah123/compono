@@ -234,11 +234,12 @@ make by composing primitives, not a schema type to pick.
 | `image` | `src?`, `placeholder`, `caption?`, `fit` (cover/contain) | A real picture, or a first-class placeholder — see below. |
 | `stat` | `value`, `label`, `trend?` | A headline number with a label. |
 | `grid` | `items`, `columns`, `direction`, `align`, `justify` | The one primitive with true 2D layout. Items can be any primitive, including nested grids. |
-| `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?` | Renders as a real OOXML table (`p:graphicFrame`), not an image. |
+| `table` | `headers`, `rows`, `emphasis_row?`, `emphasis_col?`, `cell_fills?` (`{row, col, fill}`) | Renders as a real OOXML table (`p:graphicFrame`), not an image. `cell_fills` colors specific body cells (additive to bold row/col emphasis); columns auto-fit to content when a font is available. |
 | `sequence` | `steps` (`{label, description?}`), `orientation` | A row/column of connected step boxes — process/timeline diagrams. |
 | `chart` | `chart_type` (bar/line/pie), `categories`, `series` | A real, editable native chart with live data — not a picture of a chart. |
 | `shape` | `kind` (rect/rounded_rect/oval/line/arrow/connector), `fill`, `fill_style` (solid default, or gradient), `border`, `connects?`, `text?` (`content`, `align`, `valign`, `autofit`, `color?`) | Freeform shape, optionally with text inside, or a connector between two other primitives by `id` (routes around any box in between automatically, ends in an arrowhead, and stops just short of the shape rather than touching it). Set `text.color` explicitly against a dark `fill` — `review()`'s contrast check can only evaluate it when both are given. |
 | `diagram` | `nodes` (`{id?, label, kind?, fill?}`), `edges?` (`{from, to}`), `orientation` (vertical/horizontal), `node_kind`, `node_fill` | A node-graph flowchart — nodes are placed automatically and edges routed between them (reusing `shape(kind="connector")`'s own obstacle-avoiding routing). Omit `edges` for an auto-connected linear chain; give nodes explicit `id`s and add `edges` for a branch or a skip-ahead edge. |
+| `gantt` | `tasks` (`{label, start_unit, duration_units, fill?}`), `unit_labels`, `task_fill` | A Gantt/timeline chart — synthesized internally as a `table` (each task's active span becomes colored `cell_fills`). Not a native chart type; `unit_labels` are plain strings, no date math. |
 
 Every schema field's description is written as an instruction (e.g. "Keep
 under ~60 characters — longer titles will be shrunk by the resolver"), not
@@ -351,6 +352,31 @@ Omitting `edges` auto-connects nodes in order (a linear chain). For a
 branch or a skip-ahead edge, give `nodes` explicit `id`s and add
 `edges: [{"from": "...", "to": "..."}]` — see
 `examples/rag_pipeline_diagram.json` for both.
+
+### 6. Gantt/timeline chart
+
+```json
+{
+  "slides": [{
+    "header": { "title": "Implementation Timeline" },
+    "body": [{
+      "primitive": "gantt",
+      "task_fill": "#2A6FDB",
+      "unit_labels": ["Wk 1", "Wk 2", "Wk 3", "Wk 4"],
+      "tasks": [
+        { "label": "Discovery", "start_unit": 0, "duration_units": 2 },
+        { "label": "Design", "start_unit": 1, "duration_units": 2, "fill": "#D9534F" }
+      ]
+    }]
+  }]
+}
+```
+
+Not a native chart type — `unit_labels` become table columns (plus a
+leading task-label column), each task a row, and its active span
+(`start_unit` through `start_unit + duration_units - 1`) filled via the
+new `table.cell_fills`. `unit_labels` are plain strings — no date math on
+compono's side. See `examples/gantt_timeline.json`.
 
 See `examples/full_catalog.json` in the repo for a complete, runnable spec.
 

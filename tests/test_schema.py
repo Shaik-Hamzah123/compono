@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from compono.schema import (
     Chart,
     Diagram,
+    Gantt,
     Grid,
     Header,
     Image,
@@ -149,6 +150,67 @@ def test_table_rejects_empty_rows() -> None:
         Table(headers=["Name", "Score"], rows=[])
 
 
+def test_table_accepts_valid_cell_fills() -> None:
+    t = Table(
+        headers=["Name", "Score"],
+        rows=[["Alice", "90"], ["Bob", "85"]],
+        cell_fills=[{"row": 0, "col": 1, "fill": "#2A6FDB"}],
+    )
+    assert t.cell_fills is not None
+    assert t.cell_fills[0].row == 0
+    assert t.cell_fills[0].col == 1
+    assert t.cell_fills[0].fill == "#2A6FDB"
+
+
+def test_table_rejects_cell_fills_outside_bounds() -> None:
+    with pytest.raises(ValidationError):
+        Table(
+            headers=["Name", "Score"],
+            rows=[["Alice", "90"]],
+            cell_fills=[{"row": 5, "col": 0, "fill": "#2A6FDB"}],
+        )
+
+
+def test_table_accepts_valid_merges() -> None:
+    t = Table(
+        headers=["Region", "Q1", "Q2"],
+        rows=[["North", "10", "12"], ["North", "11", "13"]],
+        merges=[{"row1": 0, "col1": 0, "row2": 1, "col2": 0}],
+    )
+    assert t.merges is not None
+    assert t.merges[0].row2 == 1
+
+
+def test_table_rejects_merges_outside_bounds() -> None:
+    with pytest.raises(ValidationError):
+        Table(
+            headers=["A", "B"],
+            rows=[["1", "2"]],
+            merges=[{"row1": 0, "col1": 0, "row2": 5, "col2": 0}],
+        )
+
+
+def test_table_rejects_inverted_merge_range() -> None:
+    with pytest.raises(ValidationError):
+        Table(
+            headers=["A", "B"],
+            rows=[["1", "2"], ["3", "4"]],
+            merges=[{"row1": 1, "col1": 0, "row2": 0, "col2": 0}],
+        )
+
+
+def test_table_rejects_overlapping_merges() -> None:
+    with pytest.raises(ValidationError):
+        Table(
+            headers=["A", "B"],
+            rows=[["1", "2"], ["3", "4"], ["5", "6"]],
+            merges=[
+                {"row1": 0, "col1": 0, "row2": 1, "col2": 0},
+                {"row1": 1, "col1": 0, "row2": 2, "col2": 0},
+            ],
+        )
+
+
 def test_sequence_minimal() -> None:
     seq = Sequence(
         steps=[
@@ -261,3 +323,41 @@ def test_diagram_rejects_edge_referencing_unknown_node() -> None:
 def test_diagram_rejects_empty_nodes() -> None:
     with pytest.raises(ValidationError):
         Diagram(nodes=[])
+
+
+def test_gantt_minimal() -> None:
+    g = Gantt(
+        unit_labels=["Wk 1", "Wk 2", "Wk 3"],
+        tasks=[{"label": "Discovery", "start_unit": 0, "duration_units": 2}],
+    )
+    assert g.primitive == "gantt"
+    assert g.task_fill == "#2A6FDB"
+    assert g.tasks[0].fill is None
+
+
+def test_gantt_per_task_fill_override() -> None:
+    g = Gantt(
+        unit_labels=["Wk 1", "Wk 2"],
+        tasks=[{"label": "A", "start_unit": 0, "duration_units": 1, "fill": "#D9534F"}],
+    )
+    assert g.tasks[0].fill == "#D9534F"
+
+
+def test_gantt_rejects_task_extending_past_unit_labels() -> None:
+    with pytest.raises(ValidationError):
+        Gantt(
+            unit_labels=["Wk 1", "Wk 2"],
+            tasks=[{"label": "Too long", "start_unit": 1, "duration_units": 2}],
+        )
+
+
+def test_gantt_rejects_empty_tasks() -> None:
+    with pytest.raises(ValidationError):
+        Gantt(unit_labels=["Wk 1"], tasks=[])
+
+
+def test_gantt_rejects_empty_unit_labels() -> None:
+    with pytest.raises(ValidationError):
+        Gantt(
+            unit_labels=[], tasks=[{"label": "A", "start_unit": 0, "duration_units": 1}]
+        )

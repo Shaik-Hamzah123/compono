@@ -72,5 +72,5 @@ compono render spec.json -o deck.pptx
 
 
 See [API reference](api-reference.md) for the full verb signatures and error
-shape, [Primitives](primitives.md) for the full catalog, and
+shape, [Primitives](primitives/README.md) for the full catalog, and
 [Templates and fonts](templates-and-fonts.md) for `template`/`font_family`.

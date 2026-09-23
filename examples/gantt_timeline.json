@@ -1,0 +1,26 @@
+{
+  "slides": [
+    {
+      "header": {
+        "eyebrow": "Project Plan",
+        "title": "Implementation Timeline",
+        "subtitle": "A Gantt chart is a table under the hood — each task's active weeks are colored cells"
+      },
+      "body": [
+        {
+          "primitive": "gantt",
+          "task_fill": "#2A6FDB",
+          "unit_labels": [
+            "Wk 1", "Wk 2", "Wk 3", "Wk 4", "Wk 5", "Wk 6", "Wk 7", "Wk 8"
+          ],
+          "tasks": [
+            { "label": "Discovery", "start_unit": 0, "duration_units": 2 },
+            { "label": "Design", "start_unit": 1, "duration_units": 3, "fill": "#D9534F" },
+            { "label": "Build", "start_unit": 3, "duration_units": 4 },
+            { "label": "Launch", "start_unit": 7, "duration_units": 1, "fill": "#059669" }
+          ]
+        }
+      ]
+    }
+  ]
+}

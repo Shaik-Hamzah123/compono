@@ -9,7 +9,7 @@ from compono.resolver import (
     Template,
     resolve_slide,
 )
-from compono.schema import Diagram, DiagramEdge, Grid, Header, Shape, Text
+from compono.schema import Diagram, DiagramEdge, Gantt, Grid, Header, Shape, Table, Text
 
 
 @pytest.fixture
@@ -374,3 +374,46 @@ def test_diagram_edge_unknown_node_ref_raises(template: Template) -> None:
     )
     with pytest.raises(ValueError, match="unknown node"):
         resolve_slide(template, body=[diagram])
+
+
+def test_gantt_resolves_to_a_real_table_at_its_own_id(template: Template) -> None:
+    gantt = Gantt(
+        unit_labels=["Wk 1", "Wk 2", "Wk 3"],
+        tasks=[{"label": "Discovery", "start_unit": 0, "duration_units": 2}],
+    )
+    result = resolve_slide(template, body=[gantt])
+
+    synthesized = result.items["body[0]"]
+    assert isinstance(synthesized, Table)
+    assert synthesized.headers == ["Task", "Wk 1", "Wk 2", "Wk 3"]
+    assert synthesized.rows == [["Discovery", "", "", ""]]
+    # No leftover Gantt entry, no child ids/parents bookkeeping — the whole
+    # thing collapses into one Table at the gantt's own id.
+    assert "body[0].tasks[0]" not in result.items
+
+
+def test_gantt_cell_fills_cover_exactly_the_tasks_span(template: Template) -> None:
+    gantt = Gantt(
+        unit_labels=["Wk 1", "Wk 2", "Wk 3", "Wk 4"],
+        task_fill="#2A6FDB",
+        tasks=[
+            {"label": "Discovery", "start_unit": 0, "duration_units": 2},
+            {
+                "label": "Design",
+                "start_unit": 2,
+                "duration_units": 1,
+                "fill": "#D9534F",
+            },
+        ],
+    )
+    result = resolve_slide(template, body=[gantt])
+    synthesized = result.items["body[0]"]
+    assert isinstance(synthesized, Table)
+    fills = {(cf.row, cf.col): cf.fill for cf in synthesized.cell_fills or []}
+    # Row 0 (Discovery) spans columns 1-2 (col 0 is the task-label column).
+    assert fills[(0, 1)] == "#2A6FDB"
+    assert fills[(0, 2)] == "#2A6FDB"
+    assert (0, 3) not in fills
+    # Row 1 (Design) spans just column 3, with its own fill override.
+    assert fills[(1, 3)] == "#D9534F"
+    assert (1, 1) not in fills and (1, 2) not in fills

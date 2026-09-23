@@ -289,6 +289,44 @@ class Stat(PrimitiveBase):
     )
 
 
+class TableCellFill(BaseModel):
+    """One body cell's fill color override — additive to (not a replacement
+    for) `Table.emphasis_row`/`emphasis_col`'s bold styling; a cell can be
+    both bold and colored.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    row: int = Field(
+        ..., description="0-based index into `rows` (not counting the header row)."
+    )
+    col: int = Field(..., description="0-based index into `headers`.")
+    fill: str = Field(..., description="Fill color for this cell, e.g. a hex string.")
+
+
+class TableCellMerge(BaseModel):
+    """A rectangular range of body cells to merge into one, e.g. a category
+    label spanning several rows, or a sub-heading spanning several columns.
+    Only body cells (never the header row) — same scope as `TableCellFill`.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    row1: int = Field(
+        ..., description="0-based index into `rows` of one corner of the range."
+    )
+    col1: int = Field(
+        ..., description="0-based index into `headers` of one corner of the range."
+    )
+    row2: int = Field(
+        ..., description="0-based index into `rows` of the opposite corner (inclusive)."
+    )
+    col2: int = Field(
+        ...,
+        description="0-based index into `headers` of the opposite corner (inclusive).",
+    )
+
+
 class Table(PrimitiveBase):
     primitive: Literal["table"] = "table"
     headers: list[str] = Field(
@@ -307,6 +345,25 @@ class Table(PrimitiveBase):
         default=None,
         description="0-based index (into headers) of a column to visually emphasize.",
     )
+    cell_fills: list[TableCellFill] | None = Field(
+        default=None,
+        description=(
+            "Per-cell fill color overrides for body cells (never the header "
+            "row). Useful for highlighting specific data points, or for "
+            "building a Gantt/timeline-style table by coloring a task's "
+            "active span of cells."
+        ),
+    )
+    merges: list[TableCellMerge] | None = Field(
+        default=None,
+        description=(
+            "Rectangular ranges of body cells to merge into one, e.g. a "
+            "category label spanning several rows. The merged cell keeps "
+            "only the range's top-left cell's text — every other cell in "
+            "the range is cleared, so it's fine if `rows` repeats the same "
+            "value across cells you intend to merge."
+        ),
+    )
 
     @model_validator(mode="after")
     def _rows_match_header_length(self) -> Table:
@@ -314,6 +371,115 @@ class Table(PrimitiveBase):
         if bad:
             raise ValueError(
                 f"rows {bad} do not have the same length as headers ({len(self.headers)} columns)."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _cell_fills_reference_real_cells(self) -> Table:
+        if self.cell_fills is None:
+            return self
+        bad = [
+            (cf.row, cf.col)
+            for cf in self.cell_fills
+            if not (0 <= cf.row < len(self.rows) and 0 <= cf.col < len(self.headers))
+        ]
+        if bad:
+            raise ValueError(
+                f"cell_fills {bad} reference cell(s) outside the table's "
+                f"rows/headers bounds ({len(self.rows)} rows, {len(self.headers)} columns)."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _merges_are_valid(self) -> Table:
+        if self.merges is None:
+            return self
+        n_rows, n_cols = len(self.rows), len(self.headers)
+        bad_bounds = [
+            m
+            for m in self.merges
+            if not (0 <= m.row1 <= m.row2 < n_rows and 0 <= m.col1 <= m.col2 < n_cols)
+        ]
+        if bad_bounds:
+            raise ValueError(
+                f"merges {bad_bounds} reference cell(s) outside the table's "
+                f"rows/headers bounds, or have row1>row2/col1>col2."
+            )
+        covered: set[tuple[int, int]] = set()
+        overlapping = []
+        for m in self.merges:
+            cells = {
+                (r, c)
+                for r in range(m.row1, m.row2 + 1)
+                for c in range(m.col1, m.col2 + 1)
+            }
+            if cells & covered:
+                overlapping.append(m)
+            covered |= cells
+        if overlapping:
+            raise ValueError(f"merges overlap another merge's range: {overlapping}")
+        return self
+
+
+class GanttTask(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    label: str = Field(..., description="Task name, shown in the leftmost column.")
+    start_unit: int = Field(
+        ...,
+        ge=0,
+        description="0-based index of the first time-unit column this task is active in.",
+    )
+    duration_units: int = Field(
+        ...,
+        ge=1,
+        description="Number of consecutive time-unit columns this task spans.",
+    )
+    fill: str | None = Field(
+        default=None,
+        description="Fill color for this task's active cells. Overrides the gantt's own `task_fill`.",
+    )
+
+
+class Gantt(PrimitiveBase):
+    """A Gantt/timeline chart: rendered as a `table` under the hood — one
+    row per task, one column per time unit, with each task's active span
+    of cells colored in (`table`'s `cell_fills`, synthesized at layout
+    time by `resolver.py`'s `_layout_gantt`). Not a native chart type
+    (`chart.chart_type` is deliberately scoped to bar/line/pie only, and
+    compono's resolver never does value-proportional placement) — this is
+    a documented, deliberate workaround, not a first-class timeline layout.
+    """
+
+    primitive: Literal["gantt"] = "gantt"
+    tasks: list[GanttTask] = Field(
+        ..., min_length=1, description="Tasks, one per row, in order."
+    )
+    unit_labels: list[str] = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Column header for each time unit, e.g. ['Wk 1', 'Wk 2', ...]. "
+            "Its length is the total number of time-unit columns. Plain "
+            "strings only — no date math happens on compono's side."
+        ),
+    )
+    task_fill: str = Field(
+        default="#2A6FDB",
+        description="Default fill color for a task's active cells; override per task via `GanttTask.fill`.",
+    )
+
+    @model_validator(mode="after")
+    def _tasks_fit_within_unit_labels(self) -> Gantt:
+        n = len(self.unit_labels)
+        bad = [
+            task.label
+            for task in self.tasks
+            if task.start_unit + task.duration_units > n
+        ]
+        if bad:
+            raise ValueError(
+                f"tasks {bad} extend past the last unit_labels column ({n} columns total)."
             )
         return self
 
@@ -374,7 +540,9 @@ class Chart(PrimitiveBase):
 
 
 PrimitiveSpec = Annotated[
-    Union[Header, Text, Image, Stat, "Grid", Table, Sequence, Chart, Shape, Diagram],
+    Union[
+        Header, Text, Image, Stat, "Grid", Table, Sequence, Chart, Shape, Diagram, Gantt
+    ],
     Field(discriminator="primitive"),
 ]
 

@@ -125,7 +125,7 @@ catalog and error shape in one shot.
 
 - [Getting started](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/getting-started.md) — install, quickstart, core concepts
 - [API reference](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/api-reference.md) — verbs, error shape, the feedback loop, design review
-- [Primitives](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/primitives.md) — full catalog, image placeholders, worked examples
+- [Primitives](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/primitives/README.md) — one page per primitive, with fields and runnable examples
 - [Templates and fonts](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/templates-and-fonts.md) — `Deck.template`, `font_family`
 - [CLI](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/cli.md)
 - [MCP server](https://github.com/Shaik-Hamzah123/compono/blob/main/docs/mcp.md) — `compono-mcp`, and what to do when compono has no context

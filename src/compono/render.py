@@ -7,7 +7,10 @@ functions over a Deck spec (raw dict or a typed Deck).
 Full v1 primitive catalog: header, text, image, stat, grid, table, sequence,
 chart, shape (COMPONO_PLAN.md section 5); plus `diagram`, added post-v1
 (a node-graph flowchart whose nodes/edges are synthesized as `shape`
-primitives at layout time — see resolver.py's `_layout_diagram`).
+primitives at layout time — see resolver.py's `_layout_diagram`); plus
+`gantt`, also post-v1 (a Gantt/timeline chart that fully collapses into a
+synthesized `table` at layout time — see resolver.py's `_layout_gantt` —
+needing zero code in this module at all).
 """
 
 from __future__ import annotations
@@ -880,6 +883,8 @@ def _render_table(
             )
             cell.text_frame.paragraphs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
+    cell_fills = {(cf.row, cf.col): cf.fill for cf in table.cell_fills or []}
+
     for r, row in enumerate(table.rows, start=1):
         for c, value in enumerate(row):
             cell = tbl.cell(r, c)
@@ -893,6 +898,26 @@ def _render_table(
                 TABLE_FONT_SIZE_PT,
                 bold=is_emphasis,
             )
+            fill = cell_fills.get((r - 1, c))
+            if fill is not None:
+                # Additive, coexists with is_emphasis's bold styling on the
+                # same cell — a cell can be both bold and colored.
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = RGBColor.from_string(fill.lstrip("#"))
+
+    # Merges last, after every cell already has its own text/font/fill.
+    # python-pptx's cell.merge() concatenates every merged cell's existing
+    # text into the origin cell (confirmed via manual testing — not "keeps
+    # the origin, discards the rest" as its own docs might suggest) — so
+    # every non-origin cell in the range must be cleared first, or a table
+    # spec with real (often duplicate) row data merges into a garbled
+    # "North\nNorth"-style origin cell instead of a clean "North".
+    for merge in table.merges or []:
+        for r in range(merge.row1, merge.row2 + 1):
+            for c in range(merge.col1, merge.col2 + 1):
+                if (r, c) != (merge.row1, merge.col1):
+                    tbl.cell(r + 1, c).text = ""
+        tbl.cell(merge.row1 + 1, merge.col1).merge(tbl.cell(merge.row2 + 1, merge.col2))
 
 
 def _render_sequence(

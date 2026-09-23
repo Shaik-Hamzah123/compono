@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-24
+
+### Added
+- `table` gains `cell_fills` (per-body-cell fill color overrides, additive
+  to `emphasis_row`/`emphasis_col`'s bold styling) and `merges`
+  (rectangular ranges of body cells merged into one, keeping only the
+  range's top-left cell's text — every other cell in the range is
+  cleared automatically, so a spec can safely repeat the same value
+  across cells it intends to merge).
+- New `gantt` primitive: a Gantt/timeline chart. Not a native chart type
+  (`chart.chart_type` stays scoped to bar/line/pie; the resolver never
+  does value-proportional placement) — instead fully synthesized as a
+  `table` at layout time (`resolver.py`'s `_layout_gantt`): `unit_labels`
+  become time-unit columns, each task a row, its active span
+  (`start_unit`..`start_unit + duration_units - 1`) colored via the new
+  `table.cell_fills`. This fully replaces the `Gantt` entry in
+  `LayoutResult.items` with the synthesized `Table`, so `render.py` needs
+  zero new code for it at all — not even a dispatch branch, a step
+  beyond the "reuse, don't reimplement" trick `diagram` already uses.
+  New `examples/gantt_timeline.json`.
+
+### Fixed
+- Table cell merging clears every non-origin cell's text before calling
+  python-pptx's `cell.merge()` — that call concatenates each merged
+  cell's existing text into the origin cell rather than discarding it,
+  which would otherwise garble a merge over cells that legitimately
+  repeat the same value (e.g. `"North"` + `"North"` → `"North\nNorth"`).
+
+### Docs
+- `docs/primitives.md` split into `docs/primitives/` — one page per
+  primitive (`README.md` index + `header.md`/`text.md`/.../`gantt.md`),
+  each with its fields and runnable examples, instead of one long file.
+
 ## [0.4.1] - 2026-09-24
 
 ### Added

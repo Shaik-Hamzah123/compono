@@ -853,3 +853,128 @@ def test_header_has_no_picture_when_logo_path_unset(tmp_path: Path) -> None:
         if s.shape_type == MSO_SHAPE_TYPE.PICTURE
     ]
     assert pictures == []
+
+
+# --- Table cell_fills + gantt primitive ---
+
+
+def test_render_table_applies_cell_fills(tmp_path: Path) -> None:
+    spec = {
+        "slides": [
+            {
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["A", "B"],
+                        "rows": [["1", "2"], ["3", "4"]],
+                        "cell_fills": [{"row": 1, "col": 0, "fill": "#2A6FDB"}],
+                    }
+                ]
+            }
+        ]
+    }
+    output = tmp_path / "deck.pptx"
+    render_deck(spec, output, template=Template.from_yaml())
+
+    prs = Presentation(str(output))
+    tbl = next(s.table for s in next(iter(prs.slides)).shapes if s.has_table)
+    # Body row 1 (0-based, "3") -> pptx row index 2 (header is row 0).
+    assert tbl.cell(2, 0).fill.fore_color.rgb == RGBColor.from_string("2A6FDB")
+    # Every other body cell stays unfilled.
+    assert tbl.cell(1, 0).fill.type is None
+    assert tbl.cell(1, 1).fill.type is None
+
+
+def test_render_table_merges_cells_and_clears_the_non_origin_cells_text(
+    tmp_path: Path,
+) -> None:
+    spec = {
+        "slides": [
+            {
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["Region", "Q1", "Q2"],
+                        "rows": [
+                            ["North", "10", "12"],
+                            ["North", "11", "13"],
+                            ["South", "5", "6"],
+                        ],
+                        "merges": [{"row1": 0, "col1": 0, "row2": 1, "col2": 0}],
+                    }
+                ]
+            }
+        ]
+    }
+    output = tmp_path / "deck.pptx"
+    render_deck(spec, output, template=Template.from_yaml())
+
+    prs = Presentation(str(output))
+    tbl = next(s.table for s in next(iter(prs.slides)).shapes if s.has_table)
+    # Merged region is pptx rows 1-2, col 0 (header is row 0).
+    assert tbl.cell(1, 0).is_merge_origin
+    # The merge must not concatenate both original "North" values.
+    assert tbl.cell(1, 0).text == "North"
+    assert tbl.cell(2, 0).text == ""
+    # Unmerged row is untouched.
+    assert tbl.cell(3, 0).text == "South"
+    assert tbl.cell(2, 1).fill.type is None
+
+
+def test_render_gantt_produces_a_real_table_with_correct_task_spans(
+    tmp_path: Path,
+) -> None:
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Project Timeline"},
+                "body": [
+                    {
+                        "primitive": "gantt",
+                        "unit_labels": ["Wk 1", "Wk 2", "Wk 3", "Wk 4"],
+                        "task_fill": "#2A6FDB",
+                        "tasks": [
+                            {
+                                "label": "Discovery",
+                                "start_unit": 0,
+                                "duration_units": 2,
+                            },
+                            {
+                                "label": "Design",
+                                "start_unit": 2,
+                                "duration_units": 2,
+                                "fill": "#D9534F",
+                            },
+                        ],
+                    }
+                ],
+            }
+        ]
+    }
+    output = tmp_path / "gantt.pptx"
+    render_deck(spec, output)
+
+    prs = Presentation(str(output))
+    slide = next(iter(prs.slides))
+    # A real, editable table — never a flattened image.
+    assert MSO_SHAPE_TYPE.PICTURE not in [s.shape_type for s in slide.shapes]
+    tbl = next(s.table for s in slide.shapes if s.has_table)
+
+    assert [tbl.cell(0, c).text for c in range(5)] == [
+        "Task",
+        "Wk 1",
+        "Wk 2",
+        "Wk 3",
+        "Wk 4",
+    ]
+    assert tbl.cell(1, 0).text == "Discovery"
+    assert tbl.cell(2, 0).text == "Design"
+
+    # Discovery spans Wk 1-2 (cols 1-2) with the default task_fill.
+    assert tbl.cell(1, 1).fill.fore_color.rgb == RGBColor.from_string("2A6FDB")
+    assert tbl.cell(1, 2).fill.fore_color.rgb == RGBColor.from_string("2A6FDB")
+    assert tbl.cell(1, 3).fill.type is None
+    # Design spans Wk 3-4 (cols 3-4) with its own override color.
+    assert tbl.cell(2, 3).fill.fore_color.rgb == RGBColor.from_string("D9534F")
+    assert tbl.cell(2, 4).fill.fore_color.rgb == RGBColor.from_string("D9534F")
+    assert tbl.cell(2, 1).fill.type is None
