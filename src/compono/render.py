@@ -485,6 +485,20 @@ def _render_header(
         _set_font(p.font, template, 16)
         p.alignment = _ALIGN_TO_PP[header.align]
 
+    if template.logo_path is not None:
+        # Sized proportionally to header height, pinned to the top-right —
+        # additive only: unset (the default for every stock template) means
+        # byte-identical output to before this field existed.
+        logo_h = int(rect.h * 0.6)
+        logo_y = rect.y + (rect.h - logo_h) // 2
+        with PILImage.open(template.logo_path) as img:
+            aspect = img.width / img.height
+        logo_w = int(logo_h * aspect)
+        logo_x = rect.x + rect.w - logo_w
+        pptx_slide.shapes.add_picture(
+            str(template.logo_path), Emu(logo_x), Emu(logo_y), Emu(logo_w), Emu(logo_h)
+        )
+
 
 def _render_text(pptx_slide: Any, text: Text, rect: Rect, template: Template) -> None:
     box = pptx_slide.shapes.add_textbox(
@@ -774,6 +788,14 @@ def _render_table(
         _set_font(
             cell.text_frame.paragraphs[0].font, template, TABLE_FONT_SIZE_PT, bold=True
         )
+        if template.primary_color is not None:
+            # Additive only — unset (every stock template today) leaves the
+            # header row at python-pptx's own default table styling.
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = RGBColor.from_string(
+                template.primary_color.lstrip("#")
+            )
+            cell.text_frame.paragraphs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
     for r, row in enumerate(table.rows, start=1):
         for c, value in enumerate(row):
@@ -822,6 +844,13 @@ def _render_sequence(
             Emu(step_rect.w),
             Emu(step_rect.h),
         )
+        if template.accent_color is not None:
+            # Additive only — unset (every stock template today) leaves the
+            # step shape at python-pptx's own default shape fill.
+            sp.fill.solid()
+            sp.fill.fore_color.rgb = RGBColor.from_string(
+                template.accent_color.lstrip("#")
+            )
         tf = sp.text_frame
         tf.word_wrap = True
         tf.vertical_anchor = MSO_ANCHOR.MIDDLE

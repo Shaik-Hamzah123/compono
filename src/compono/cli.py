@@ -7,6 +7,7 @@ compono reference
 compono inspire scan decks/ -o skills/inspire-myteam/
 compono docx validate doc_spec.json
 compono docx render doc_spec.json -o report.docx
+compono template extract corporate_master.pptx acme -o src/compono/templates/
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from compono.reference import reference
 from compono.render import DeckValidationError, render_deck, validate
 from compono.resolver import Template
 from compono.review import review
+from compono.template_authoring import extract_template_data, write_extracted_template
 
 
 def _load_spec(path: str) -> dict:
@@ -107,6 +109,31 @@ def main(argv: list[str] | None = None) -> int:
     docx_render_parser.add_argument("spec", help="Path to a JSON docx spec.")
     docx_render_parser.add_argument(
         "-o", "--output", default="document.docx", help="Output .docx path."
+    )
+
+    template_parser = subparsers.add_parser(
+        "template", help="Developer-side template tooling (not agent-facing)."
+    )
+    template_subparsers = template_parser.add_subparsers(
+        dest="template_command", required=True
+    )
+    template_extract_parser = template_subparsers.add_parser(
+        "extract",
+        help=(
+            "Draft a new templates/<name>.yaml from an existing .pptx's page "
+            "size, theme accent colors, theme font, and master logo. Best-"
+            "effort — review the written yaml before committing it, same as "
+            "any hand-authored template."
+        ),
+    )
+    template_extract_parser.add_argument("source", help="Path to the source .pptx.")
+    template_extract_parser.add_argument("name", help="Name for the new template.")
+    template_extract_parser.add_argument(
+        "-o",
+        "--output-dir",
+        default=str(Path(__file__).parent / "templates"),
+        help="Directory to write <name>.yaml (and assets/<name>-logo.* if a "
+        "logo was found) into. Defaults to compono's own bundled templates/.",
     )
 
     args = parser.parse_args(argv)
@@ -234,6 +261,23 @@ def main(argv: list[str] | None = None) -> int:
                     "docx_path": str(docx_render_report.docx_path),
                     "manifest": docx_render_report.manifest,
                     "warnings": docx_render_report.warnings,
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    if args.command == "template" and args.template_command == "extract":
+        data = extract_template_data(Path(args.source))
+        yaml_path = write_extracted_template(data, args.name, Path(args.output_dir))
+        print(
+            json.dumps(
+                {
+                    "template_yaml": str(yaml_path),
+                    "font_family": data.font_family,
+                    "primary_color": data.primary_color,
+                    "accent_color": data.accent_color,
+                    "logo_found": data.logo_bytes is not None,
                 },
                 indent=2,
             )

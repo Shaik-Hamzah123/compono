@@ -389,6 +389,18 @@ sub-rect, not as one combined block of text against the whole box — a
 single overlong cell trips a structured error even if the rest of the
 table/sequence is short.
 
+**Branding (colors/logo):** a template yaml can optionally set
+`colors: {primary, accent}` and `logo: <path>`. When set, `table`'s header
+row fills with `primary` (white text), `sequence` step shapes fill with
+`accent`, and the header region gets a real logo picture in its top-right
+corner. All three are additive — unset (every stock template today)
+renders exactly as before. `compono template extract SOURCE.pptx NAME` is
+a **developer/host-side** command (not something to invoke over MCP) that
+drafts a new branded `templates/<name>.yaml` from an existing corporate
+deck's page size, theme accent colors, theme font, and master logo — the
+written file is a draft to review before committing, same as any
+hand-authored template.
+
 ## Inspire
 
 `scan_deck`/`aggregate`/`write_skill` (also `compono.inspire`) scan a

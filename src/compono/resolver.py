@@ -51,12 +51,17 @@ class Template:
     footer_height: int
     gutter: int
     font_family: str = "Calibri"
+    primary_color: str | None = None
+    accent_color: str | None = None
+    logo_path: Path | None = None
 
     @classmethod
     def from_yaml(cls, path: Path = DEFAULT_TEMPLATE_PATH) -> Template:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         page = data["page"]
         margin = data["margin_in"]
+        colors = data.get("colors") or {}
+        logo = data.get("logo")
         return cls(
             page_width=_in_to_emu(page["width_in"]),
             page_height=_in_to_emu(page["height_in"]),
@@ -68,6 +73,9 @@ class Template:
             footer_height=_in_to_emu(data["footer"]["height_in"]),
             gutter=_in_to_emu(data["gutter_in"]),
             font_family=data.get("font_family", "Calibri"),
+            primary_color=colors.get("primary"),
+            accent_color=colors.get("accent"),
+            logo_path=(path.parent / logo) if logo else None,
         )
 
     @classmethod

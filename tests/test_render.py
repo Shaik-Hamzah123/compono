@@ -5,12 +5,14 @@ primitive slice (header, text, grid, shape), plus a CLI smoke test against
 an inline minimal spec.
 """
 
+import dataclasses
 import json
 from pathlib import Path
 
 import pytest
 from pptx import Presentation
 from pptx.dml.color import RGBColor
+from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from compono.cli import main as cli_main
 from compono.render import (
@@ -133,7 +135,6 @@ def test_render_deck_writes_a_real_pptx(tmp_path: Path) -> None:
     # Non-negotiable invariant: every primitive is a real, editable shape —
     # never a picture or embedded video (COMPONO_PLAN.md section 3).
     shape_types = {shape.shape_type for shape in slide.shapes}
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
 
     assert MSO_SHAPE_TYPE.PICTURE not in shape_types
     # header textbox + bullets textbox + 2 shapes + 1 connector + footer = 6 shapes
@@ -332,6 +333,29 @@ def test_cli_render_unknown_template_flag_fails_cleanly(tmp_path: Path) -> None:
     assert exit_code == 1
 
 
+def test_cli_template_extract_writes_a_reviewable_yaml(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "source.pptx"
+    Presentation().save(str(source))
+    output_dir = tmp_path / "out"
+
+    exit_code = cli_main(
+        ["template", "extract", str(source), "acme", "-o", str(output_dir)]
+    )
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert exit_code == 0
+    assert result["template_yaml"] == str(output_dir / "acme.yaml")
+    assert (output_dir / "acme.yaml").exists()
+
+    # The written yaml is immediately loadable by Template.from_yaml, same
+    # as any hand-authored templates/<name>.yaml.
+    loaded = Template.from_yaml(output_dir / "acme.yaml")
+    assert loaded.font_family  # never empty, even if the source had no theme font
+    assert loaded.font_family == result["font_family"] or result["font_family"] is None
+
+
 def test_validate_accepts_full_catalog_spec() -> None:
     report = validate(FULL_CATALOG_SPEC)
     assert report.valid is True
@@ -339,7 +363,6 @@ def test_validate_accepts_full_catalog_spec() -> None:
 
 
 def test_render_deck_writes_all_primitive_types(tmp_path: Path) -> None:
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
 
     output = tmp_path / "full_catalog.pptx"
     report = render_deck(FULL_CATALOG_SPEC, output)
@@ -378,7 +401,6 @@ def test_image_placeholder_caption_has_a_visible_font_color(tmp_path: Path) -> N
 
 
 def test_render_deck_sequence_draws_connectors_between_steps(tmp_path: Path) -> None:
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
 
     output = tmp_path / "full_catalog.pptx"
     render_deck(FULL_CATALOG_SPEC, output)
@@ -538,7 +560,9 @@ def test_extract_text_fields_checks_each_table_cell_against_its_own_sub_rect() -
         assert sub_rect.h == 250  # header row + 1 data row
 
 
-def test_extract_text_fields_checks_each_sequence_step_against_its_own_sub_rect() -> None:
+def test_extract_text_fields_checks_each_sequence_step_against_its_own_sub_rect() -> (
+    None
+):
     sequence = Sequence(
         steps=[
             SequenceStep(label="One"),
@@ -556,8 +580,9 @@ def test_extract_text_fields_checks_each_sequence_step_against_its_own_sub_rect(
         assert sub_rect.h == 500
 
 
-def test_validate_flags_a_single_overlong_table_cell_even_though_the_combined_text_would_fit(
-) -> None:
+def test_validate_flags_a_single_overlong_table_cell_even_though_the_combined_text_would_fit() -> (
+    None
+):
     """Regression test for the actual bug the per-cell fix addresses: many
     short cells plus one very long cell used to pass because only the
     combined string was checked against the whole table's rect.
@@ -587,7 +612,6 @@ def test_validate_flags_a_single_overlong_table_cell_even_though_the_combined_te
 def test_render_deck_diagram_renders_nodes_and_edges_as_real_shapes(
     tmp_path: Path,
 ) -> None:
-    from pptx.enum.shapes import MSO_SHAPE_TYPE
 
     spec = {
         "slides": [
@@ -619,14 +643,127 @@ def test_render_deck_diagram_renders_nodes_and_edges_as_real_shapes(
     assert len(slide.shapes) == 7
 
     node_texts = {
-        s.text_frame.text for s in slide.shapes if s.has_text_frame and s.text_frame.text
+        s.text_frame.text
+        for s in slide.shapes
+        if s.has_text_frame and s.text_frame.text
     }
     assert {"User", "Router", "Retriever"} <= node_texts
 
     # A node's own fill override wins over the diagram-level default.
     retriever = next(
-        s
-        for s in slide.shapes
-        if s.has_text_frame and s.text_frame.text == "Retriever"
+        s for s in slide.shapes if s.has_text_frame and s.text_frame.text == "Retriever"
     )
     assert retriever.fill.fore_color.rgb == RGBColor.from_string("FF0000")
+
+
+# --- Template branding: primary_color/accent_color/logo_path (all additive/gated) ---
+
+
+def _table_spec() -> dict:
+    return {
+        "slides": [
+            {
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["Metric", "Value"],
+                        "rows": [["Revenue", "$1.2M"]],
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_table_header_fill_unset_by_default(tmp_path: Path) -> None:
+    output = tmp_path / "deck.pptx"
+    render_deck(_table_spec(), output, template=Template.from_yaml())
+
+    prs = Presentation(str(output))
+    tbl = next(s.table for s in next(iter(prs.slides)).shapes if s.has_table)
+    # No template.primary_color set -> python-pptx's own default cell fill,
+    # never an explicitly-set solid color.
+    assert tbl.cell(0, 0).fill.type is None
+
+
+def test_table_header_fill_applies_primary_color_when_set(tmp_path: Path) -> None:
+    branded = dataclasses.replace(Template.from_yaml(), primary_color="#1F4E79")
+    output = tmp_path / "deck.pptx"
+    render_deck(_table_spec(), output, template=branded)
+
+    prs = Presentation(str(output))
+    tbl = next(s.table for s in next(iter(prs.slides)).shapes if s.has_table)
+    assert tbl.cell(0, 0).fill.fore_color.rgb == RGBColor.from_string("1F4E79")
+    assert tbl.cell(0, 0).text_frame.paragraphs[0].font.color.rgb == RGBColor(
+        0xFF, 0xFF, 0xFF
+    )
+
+
+def _sequence_spec() -> dict:
+    return {
+        "slides": [
+            {
+                "body": [
+                    {
+                        "primitive": "sequence",
+                        "steps": [{"label": "Discovery"}, {"label": "Delivery"}],
+                    }
+                ]
+            }
+        ]
+    }
+
+
+def test_sequence_step_fill_applies_accent_color_when_set(tmp_path: Path) -> None:
+    branded = dataclasses.replace(Template.from_yaml(), accent_color="#2E86AB")
+    output = tmp_path / "deck.pptx"
+    render_deck(_sequence_spec(), output, template=branded)
+
+    prs = Presentation(str(output))
+    step_shapes = [
+        s
+        for s in next(iter(prs.slides)).shapes
+        if s.has_text_frame and s.text_frame.text == "Discovery"
+    ]
+    assert len(step_shapes) == 1
+    assert step_shapes[0].fill.fore_color.rgb == RGBColor.from_string("2E86AB")
+
+
+def test_header_logo_renders_a_real_picture_when_logo_path_set(tmp_path: Path) -> None:
+    from PIL import Image as PILImage
+
+    logo_path = tmp_path / "logo.png"
+    PILImage.new("RGB", (40, 20), color=(10, 20, 30)).save(logo_path)
+    branded = dataclasses.replace(Template.from_yaml(), logo_path=logo_path)
+
+    output = tmp_path / "deck.pptx"
+    render_deck(
+        {"slides": [{"header": {"title": "Q3 Results"}, "body": []}]},
+        output,
+        template=branded,
+    )
+
+    prs = Presentation(str(output))
+    pictures = [
+        s
+        for s in next(iter(prs.slides)).shapes
+        if s.shape_type == MSO_SHAPE_TYPE.PICTURE
+    ]
+    assert len(pictures) == 1
+
+
+def test_header_has_no_picture_when_logo_path_unset(tmp_path: Path) -> None:
+    output = tmp_path / "deck.pptx"
+    render_deck(
+        {"slides": [{"header": {"title": "Q3 Results"}, "body": []}]},
+        output,
+        template=Template.from_yaml(),
+    )
+
+    prs = Presentation(str(output))
+    pictures = [
+        s
+        for s in next(iter(prs.slides)).shapes
+        if s.shape_type == MSO_SHAPE_TYPE.PICTURE
+    ]
+    assert pictures == []

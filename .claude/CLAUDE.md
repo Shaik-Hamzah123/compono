@@ -113,7 +113,10 @@ new work almost always touches several of them in the same pattern:
    since the schema doubles as in-context documentation.
 2. **`resolver.py`** — the layout engine. `Template.from_yaml` loads
    `templates/default.yaml` (page size, margins, header/footer heights,
-   gutter) and converts everything to EMU. `resolve_slide` does a
+   gutter, and optional `colors: {primary, accent}`/`logo:` branding
+   fields — all `None` unless a template yaml sets them, so every stock
+   template renders byte-identically to before these fields existed) and
+   converts geometry to EMU. `resolve_slide` does a
    directional box model: header region top, footer pinned bottom, body
    fills the remainder; body primitives currently share height equally (a
    flex-equal fallback — real content-based sizing via font metrics is a
@@ -153,7 +156,40 @@ new work almost always touches several of them in the same pattern:
 5. **`cli.py`** — argparse wrapper exposing `validate`/`render_deck` as
    `compono validate`/`compono render`, for frameworks that can only shell
    out (also wires up `docx validate`/`docx render`, `inspire scan`,
-   `reference`).
+   `reference`, `template extract`).
+
+### `template_authoring.py` (host-side tool, not part of the five modules)
+
+Backs `compono template extract SOURCE NAME` — drafts a new
+`templates/<name>.yaml` from an existing corporate `.pptx`'s page size,
+theme accent colors (`a:clrScheme/accent1`/`accent2`, read via raw
+zip+lxml parsing of the theme XML part since python-pptx's own
+`pptx/oxml/theme.py` has no read accessors for it), theme body font, and
+a logo picture on the slide master, if any. Always best-effort — a
+missing/malformed theme or no master logo degrades to `None` fields, never
+raises. Deliberately **not** placed in `resolver.py` (which must stay
+import-`pptx`-free per the "only `render.py` imports `pptx`" rule below —
+this module imports it for read-only extraction, a distinct concern from
+either `resolver.py`'s pure layout math or `render.py`'s pptx *write*
+path). Margins/header/footer/gutter are never derived from the source
+deck — they're copied from compono's own `default.yaml`, since arbitrary
+master placeholder geometry has no mapping onto compono's resolver box
+model (compono never uses PowerPoint placeholder inheritance). This is a
+developer/host-side tool only: `Deck.template` (schema.py) still accepts
+only a plain string naming a file under `templates/`, so an agent cannot
+point a render at an arbitrary uploaded `.pptx` — the written yaml is a
+"one-time, reviewed, host-side change" like any hand-authored template
+(see `docs/templates-and-fonts.md`'s governance section).
+
+The three new optional `Template` fields (`primary_color`, `accent_color`,
+`logo_path`) are consumed additively in `render.py`: a branded table
+header row fill (`_render_table`, gated on `primary_color`), branded
+sequence step shape fill (`_render_sequence`, gated on `accent_color`),
+and a header-region logo picture (`_render_header`, gated on `logo_path`)
+— each a real OOXML object (`cell.fill`/`shape.fill`/`add_picture`), never
+a rasterized stand-in. Chart color theming and slide master/layout
+placeholder-geometry inheritance are explicitly out of scope (see
+NEXT-STEPS.md if working on this area further).
 
 ### DOCX (a separate, parallel pipeline)
 

@@ -365,6 +365,19 @@ picks up `template.font_family`. Table and sequence overflow are checked
 per-cell/per-step against each cell's own sub-rect, not as one combined
 block of text.
 
+## Branding (colors/logo)
+
+A template yaml can optionally set `colors: {primary, accent}` and
+`logo: <path>`. When set: `table`'s header row fills with `primary` (white
+text), `sequence` step shapes fill with `accent`, and the header region
+gets a real logo picture top-right. All additive — unset (every stock
+template today) renders exactly as before. `compono template extract
+SOURCE.pptx NAME` is a developer/host-side CLI command (not an MCP tool)
+that drafts a new branded `templates/<name>.yaml` from an existing
+corporate deck's page size, theme accent colors, theme font, and master
+logo — review the written file before committing, same as any
+hand-authored template.
+
 ## Inspire
 
 `inspire_scan(pptx_paths, out_dir, name="custom", min_repeat_ratio=0.5)`

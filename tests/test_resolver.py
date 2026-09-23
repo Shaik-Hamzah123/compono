@@ -39,6 +39,38 @@ def test_template_from_name_raises_on_unknown_name() -> None:
         Template.from_name("nonexistent")
 
 
+def test_template_colors_and_logo_default_to_none(template: Template) -> None:
+    # No stock template sets colors/logo — existing render output must stay
+    # byte-identical to before these fields existed.
+    assert template.primary_color is None
+    assert template.accent_color is None
+    assert template.logo_path is None
+
+
+def test_template_loads_colors_and_logo_when_present(tmp_path) -> None:
+    yaml_path = tmp_path / "branded.yaml"
+    yaml_path.write_text(
+        """
+        name: branded
+        page: {width_in: 13.333, height_in: 7.5}
+        margin_in: {top: 0.5, right: 0.6, bottom: 0.5, left: 0.6}
+        header: {height_in: 1.2}
+        footer: {height_in: 0.4}
+        gutter_in: 0.2
+        font_family: Calibri
+        colors:
+          primary: "#1F4E79"
+          accent: "#2E86AB"
+        logo: assets/acme-logo.png
+        """,
+        encoding="utf-8",
+    )
+    branded = Template.from_yaml(yaml_path)
+    assert branded.primary_color == "#1F4E79"
+    assert branded.accent_color == "#2E86AB"
+    assert branded.logo_path == tmp_path / "assets" / "acme-logo.png"
+
+
 def test_resolve_slide_with_header_places_header_above_body(template: Template) -> None:
     header = Header(title="Q3 Results")
     body = [Text(content="Body copy")]

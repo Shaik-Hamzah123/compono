@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-24
+
+### Added
+- Optional template branding: a `templates/<name>.yaml` may now set
+  `colors: {primary, accent}` and `logo: <path>`. When set, `table`'s
+  header row fills with `primary` (white text), `sequence` step shapes
+  fill with `accent`, and the header region gets a real logo picture
+  (`add_picture`, never rasterized) in its top-right corner. All three are
+  additive and gated on being set — every stock template (`default`/
+  `modern`/`classic`/`clean`) has none set, so existing output is
+  byte-identical to before this change.
+- New `compono template extract SOURCE.pptx NAME [-o output-dir]` CLI
+  command (host/developer-side tool, not agent- or MCP-facing): drafts a
+  new `templates/<name>.yaml` by reading an existing corporate `.pptx`'s
+  page size (exact, via python-pptx), theme accent colors and body font
+  (best-effort, parsed directly from the theme XML part since python-pptx
+  itself has no read API for theme color/font schemes), and the first
+  picture shape found on the slide master (a common place for a corporate
+  logo). Margins/header/footer/gutter are always copied from compono's own
+  `default.yaml`, never derived from the source deck — arbitrary master/
+  layout placeholder geometry has no mapping onto compono's own resolver
+  box model. The written yaml is a draft to review before committing, same
+  as any hand-authored template; `Deck.template` still only accepts a
+  plain string naming a file already under `templates/`, so this doesn't
+  open any new agent-facing template-injection surface. New
+  `src/compono/template_authoring.py` module (kept separate from
+  `resolver.py`, which must stay `pptx`-import-free, and from `render.py`,
+  reserved for the pptx *write* path).
+
+### Known limitations (unchanged from before, noted explicitly here)
+- Slide master/layout **placeholder geometry** is not inherited — compono
+  never uses PowerPoint's placeholder inheritance; it computes every rect
+  itself via its own resolver box model, so there's nowhere for
+  placeholder geometry to plug in without a much larger rearchitecture.
+- Chart color theming is not implemented — `colors.primary`/`accent` apply
+  to `table`/`sequence` only, not yet to chart series.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added
