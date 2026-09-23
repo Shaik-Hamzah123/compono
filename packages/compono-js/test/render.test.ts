@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,8 +11,10 @@ import {
   renderDeck,
   sequenceStepRects,
   tableCellRects,
+  tableColumnWidthsEmu,
   validate,
 } from "../src/render.js";
+import type { FontMetrics } from "../src/validator.js";
 import { resolveFontPath } from "../src/validator.js";
 import type { Sequence, Table } from "../src/schema.js";
 
@@ -161,6 +163,185 @@ describe("renderDeck", () => {
     expect(slideXml).toContain("2A6FDB");
     // ...but a node's own `fill` wins over the diagram-level default.
     expect(slideXml).toContain("D9534F");
+  });
+
+  it("applies cell_fills to the right table body cell only", async () => {
+    const output = tmpPath("cellfills.pptx");
+    const spec = {
+      slides: [
+        {
+          body: [
+            {
+              primitive: "table",
+              headers: ["A", "B"],
+              rows: [["1", "2"], ["3", "4"]],
+              cell_fills: [{ row: 1, col: 0, fill: "#2A6FDB" }],
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    expect(slideXml).toContain("2A6FDB");
+  });
+
+  it("merges table cells via colspan/rowspan in the raw table XML", async () => {
+    // pptxgenjs has no python-pptx-style post-render cell inspection API —
+    // read the raw OOXML table markup instead, checking for the gridSpan/
+    // rowSpan + hMerge/vMerge attributes a real merge produces.
+    const output = tmpPath("merge.pptx");
+    const spec = {
+      slides: [
+        {
+          body: [
+            {
+              primitive: "table",
+              headers: ["Region", "Q1", "Q2"],
+              rows: [
+                ["North", "10", "12"],
+                ["North", "11", "13"],
+                ["South", "5", "6"],
+              ],
+              merges: [{ row1: 0, col1: 0, row2: 1, col2: 0 }],
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    expect(slideXml).toMatch(/rowSpan="2"/);
+    expect(slideXml).toMatch(/vMerge="1"|vMerge="true"/);
+    expect(slideXml).toContain("North");
+    expect(slideXml).toContain("South");
+  });
+
+  it("renders a gantt's task spans as colored table cells, with per-task fill overrides winning", async () => {
+    const output = tmpPath("gantt.pptx");
+    const spec = {
+      slides: [
+        {
+          header: { title: "Project Timeline" },
+          body: [
+            {
+              primitive: "gantt",
+              task_fill: "#2A6FDB",
+              unit_labels: ["Wk 1", "Wk 2", "Wk 3", "Wk 4"],
+              tasks: [
+                { label: "Discovery", start_unit: 0, duration_units: 2 },
+                { label: "Design", start_unit: 2, duration_units: 2, fill: "#D9534F" },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    expect(slideXml).toContain("Discovery");
+    expect(slideXml).toContain("Design");
+    expect(slideXml).toContain("Wk 1");
+    expect(slideXml).toContain("2A6FDB");
+    expect(slideXml).toContain("D9534F");
+  });
+
+  it("applies template.primaryColor to the table header row and template.accentColor to sequence steps", async () => {
+    const output = tmpPath("branded.pptx");
+    const template = { ...loadTemplateByName("default"), primaryColor: "#1F4E79", accentColor: "#2E86AB" };
+    const spec = {
+      slides: [
+        {
+          body: [
+            { primitive: "table", headers: ["A"], rows: [["1"]] },
+            { primitive: "sequence", steps: [{ label: "Step" }] },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output, template);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    expect(slideXml).toContain("1F4E79");
+    expect(slideXml).toContain("2E86AB");
+  });
+
+  it("does not brand the table header or sequence steps when colors are unset", async () => {
+    const output = tmpPath("unbranded.pptx");
+    const spec = {
+      slides: [
+        {
+          body: [
+            { primitive: "table", headers: ["A"], rows: [["1"]] },
+            { primitive: "sequence", steps: [{ label: "Step" }] },
+          ],
+        },
+      ],
+    };
+    await renderDeck(spec, output);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+    // Unset -> the pre-existing hardcoded defaults, unchanged.
+    expect(slideXml).toContain("4A7FC2"); // TABLE_HEADER_FILL
+    expect(slideXml).toContain("2A6FDB"); // sequence step default fill
+  });
+
+  it("renders a real logo picture in the header when template.logoPath is set", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "compono-js-logo-"));
+    const logoPath = join(dir, "logo.png");
+    // 1x1 transparent PNG.
+    writeFileSync(
+      logoPath,
+      Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    );
+    const output = tmpPath("logo.pptx");
+    const template = { ...loadTemplateByName("default"), logoPath };
+    await renderDeck({ slides: [{ header: { title: "Q3" }, body: [] }] }, output, template);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    // pptxgenjs always writes an (empty) `ppt/media/` directory entry
+    // regardless of whether any image was embedded — only count real files.
+    const mediaFiles = Object.keys(zip.files).filter((f) => /^ppt\/media\/.+/.test(f));
+    expect(mediaFiles.length).toBeGreaterThan(0);
+  });
+
+  it("does not render a logo picture when template.logoPath is unset", async () => {
+    const output = tmpPath("nologo.pptx");
+    await renderDeck({ slides: [{ header: { title: "Q3" }, body: [] }] }, output);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const mediaFiles = Object.keys(zip.files).filter((f) => /^ppt\/media\/.+/.test(f));
+    expect(mediaFiles.length).toBe(0);
+  });
+});
+
+describe("tableColumnWidthsEmu", () => {
+  const monospaceMetrics: FontMetrics = {
+    unitsPerEm: 1000,
+    defaultAdvance: 600,
+    advanceWidths: new Map(),
+  };
+
+  it("returns null without font metrics", () => {
+    const rect: Rect = { x: 0, y: 0, w: 900_000, h: 200_000 };
+    expect(tableColumnWidthsEmu(["A", "B"], [["1", "2"]], rect, null)).toBeNull();
+  });
+
+  it("sums to rect.w and gives more space to the longer column", () => {
+    const rect: Rect = { x: 0, y: 0, w: 900_000, h: 200_000 };
+    const widths = tableColumnWidthsEmu(
+      ["Short", "This is a considerably longer column header"],
+      [["s", "l"]],
+      rect,
+      monospaceMetrics,
+    );
+    expect(widths).not.toBeNull();
+    expect(widths!.reduce((a, b) => a + b, 0)).toBe(rect.w);
+    expect(widths![1]).toBeGreaterThan(widths![0]);
   });
 });
 

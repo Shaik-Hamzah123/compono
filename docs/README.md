@@ -6,6 +6,7 @@
 - [Templates and fonts](templates-and-fonts.md) — `Deck.template`, `font_family`, overflow validation
 - [CLI](cli.md) — `compono validate`/`review`/`render`/`reference`
 - [MCP server](mcp.md) — `compono-mcp`, and what to do when compono has no context
+- [compono-js](compono-js.md) — TypeScript port (pptx via pptxgenjs, plus review/Inspire/DOCX) and its MCP server, for JS/TS agent harnesses
 - [Claude Code plugin](claude-code-plugin.md) — installing this repo's skill
 
 Agents: run `compono reference` / `compono.reference()` (or read

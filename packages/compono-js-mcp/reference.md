@@ -47,15 +47,20 @@ A `Section` is `{header_text?: str, footer_text?: str, body: [primitive, ...]}`.
 
 ## Primitive catalog (pptx)
 
-`header`, `text`, `image`, `stat`, `grid`, `table`, `sequence`, `chart`,
-`shape` (including `kind: "connector"`, resolved via a routing pass that
-avoids obstacles), `diagram` (`nodes` (`{id?, label, kind?, fill?}`),
+`header`, `text`, `image`, `stat`, `grid`, `table` (`headers`, `rows`,
+`emphasis_row?`, `emphasis_col?`, `cell_fills?` (`{row, col, fill}`),
+`merges?` (`{row1, col1, row2, col2}`)), `sequence`, `chart`, `shape`
+(including `kind: "connector"`, resolved via a routing pass that avoids
+obstacles), `diagram` (`nodes` (`{id?, label, kind?, fill?}`),
 `edges?` (`{from, to}`), `orientation` (vertical/horizontal), `node_kind`,
 `node_fill`) — a node-graph flowchart whose nodes are placed automatically
 and edges routed between them, reusing `shape(kind="connector")`'s own
 obstacle-avoiding routing. Omit `edges` for an auto-connected linear chain;
 give nodes explicit `id`s and add `edges` for a branch or a skip-ahead
-edge.
+edge. `gantt` (`tasks` (`{label, start_unit, duration_units, fill?}`),
+`unit_labels`, `task_fill`) — a Gantt/timeline chart synthesized
+internally as a `table` (each task's active span becomes colored
+`cell_fills`); not a native chart type, `unit_labels` are plain strings.
 
 ## Primitive catalog (docx)
 
@@ -111,6 +116,29 @@ Omitting `edges` auto-connects nodes in order (a linear chain). For a
 branch or a skip-ahead edge, give `nodes` explicit `id`s and add
 `edges: [{"from": "...", "to": "..."}]`.
 
+## Worked example (gantt)
+
+```json
+{
+  "slides": [
+    {
+      "header": { "title": "Implementation Timeline" },
+      "body": [
+        {
+          "primitive": "gantt",
+          "task_fill": "#2A6FDB",
+          "unit_labels": ["Wk 1", "Wk 2", "Wk 3", "Wk 4"],
+          "tasks": [
+            { "label": "Discovery", "start_unit": 0, "duration_units": 2 },
+            { "label": "Design", "start_unit": 1, "duration_units": 2, "fill": "#D9534F" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## Worked example (docx)
 
 ```json
@@ -136,6 +164,10 @@ file; the deck itself always renders in whatever `fontFamily` the template
 names. Chart axis/legend/data-label text picks up `template.fontFamily`
 too, and table/sequence overflow is checked per-cell/per-step against each
 cell's own sub-rect.
+
+A template yaml can also set `colors: {primary, accent}`/`logo:` to brand
+`table`'s header row, `sequence`'s step shapes, and add a real header logo
+picture — all additive, unset means unchanged output.
 
 ## Known limitations
 

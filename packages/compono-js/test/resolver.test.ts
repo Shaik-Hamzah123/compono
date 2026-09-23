@@ -1,6 +1,9 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadTemplateByName, resolveSlide } from "../src/resolver.js";
-import type { PrimitiveSpecT } from "../src/schema.js";
+import { loadTemplateByName, loadTemplateFromYaml, resolveSlide } from "../src/resolver.js";
+import type { PrimitiveSpecT, Table } from "../src/schema.js";
 
 const template = loadTemplateByName("default");
 
@@ -193,5 +196,75 @@ describe("resolveSlide", () => {
       node_fill: null,
     };
     expect(() => resolveSlide(template, null, [diagram])).toThrow(/unknown node/);
+  });
+
+  it("loads colors/logo from a template yaml when present", () => {
+    const dir = mkdtempSync(join(tmpdir(), "compono-js-tpl-"));
+    const yamlPath = join(dir, "branded.yaml");
+    writeFileSync(
+      yamlPath,
+      `
+name: branded
+page: {width_in: 13.333, height_in: 7.5}
+margin_in: {top: 0.5, right: 0.6, bottom: 0.5, left: 0.6}
+header: {height_in: 1.2}
+footer: {height_in: 0.4}
+gutter_in: 0.2
+font_family: Calibri
+colors:
+  primary: "#1F4E79"
+  accent: "#2E86AB"
+logo: assets/acme-logo.png
+`,
+    );
+    const branded = loadTemplateFromYaml(yamlPath);
+    expect(branded.primaryColor).toBe("#1F4E79");
+    expect(branded.accentColor).toBe("#2E86AB");
+    expect(branded.logoPath).toBe(join(dir, "assets", "acme-logo.png"));
+  });
+
+  it("leaves colors/logo undefined when a template yaml omits them", () => {
+    expect(template.primaryColor).toBeUndefined();
+    expect(template.accentColor).toBeUndefined();
+    expect(template.logoPath).toBeUndefined();
+  });
+
+  it("resolves a gantt to a real Table at its own id", () => {
+    const gantt = {
+      primitive: "gantt" as const,
+      id: null,
+      notes: null,
+      unit_labels: ["Wk 1", "Wk 2", "Wk 3"],
+      task_fill: "#2A6FDB",
+      tasks: [{ label: "Discovery", start_unit: 0, duration_units: 2, fill: null }],
+    };
+    const result = resolveSlide(template, null, [gantt]);
+    const synthesized = result.items.get("body[0]") as Table;
+    expect(synthesized.primitive).toBe("table");
+    expect(synthesized.headers).toEqual(["Task", "Wk 1", "Wk 2", "Wk 3"]);
+    expect(synthesized.rows).toEqual([["Discovery", "", "", ""]]);
+    expect(result.items.has("body[0].tasks[0]")).toBe(false);
+  });
+
+  it("gantt cell_fills cover exactly each task's span, with per-task overrides winning", () => {
+    const gantt = {
+      primitive: "gantt" as const,
+      id: null,
+      notes: null,
+      unit_labels: ["Wk 1", "Wk 2", "Wk 3", "Wk 4"],
+      task_fill: "#2A6FDB",
+      tasks: [
+        { label: "Discovery", start_unit: 0, duration_units: 2, fill: null },
+        { label: "Design", start_unit: 2, duration_units: 1, fill: "#D9534F" },
+      ],
+    };
+    const result = resolveSlide(template, null, [gantt]);
+    const synthesized = result.items.get("body[0]") as Table;
+    const fills = new Map((synthesized.cell_fills ?? []).map((cf) => [`${cf.row},${cf.col}`, cf.fill]));
+    expect(fills.get("0,1")).toBe("#2A6FDB");
+    expect(fills.get("0,2")).toBe("#2A6FDB");
+    expect(fills.has("0,3")).toBe(false);
+    expect(fills.get("1,3")).toBe("#D9534F");
+    expect(fills.has("1,1")).toBe(false);
   });
 });

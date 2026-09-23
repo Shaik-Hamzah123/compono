@@ -35,4 +35,18 @@ describe("cli", () => {
     const report = JSON.parse(out);
     expect(report.pptxPath).toBe(outputPath);
   });
+
+  it("template extract writes a reviewable yaml", () => {
+    const specPath = tmpPath("spec.json");
+    writeFileSync(specPath, JSON.stringify(MINIMAL_SPEC));
+    const sourcePptx = tmpPath("source.pptx");
+    execFileSync("node", [CLI, "render", specPath, "-o", sourcePptx], { encoding: "utf-8" });
+
+    const outputDir = tmpPath("out");
+    const out = execFileSync("node", [CLI, "template", "extract", sourcePptx, "acme", "-o", outputDir], {
+      encoding: "utf-8",
+    });
+    const result = JSON.parse(out);
+    expect(result.template_yaml).toBe(join(outputDir, "acme.yaml"));
+  });
 });

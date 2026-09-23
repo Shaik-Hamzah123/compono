@@ -15,6 +15,9 @@
  *   - font_size: text using most of its box's height without (yet)
  *     overflowing.
  *   - style: an em dash (—) in any text-bearing field.
+ *   - table_density: a table's resolved row height or column width is
+ *     already cramped for its box — purely geometric, so it still runs
+ *     when overflow checking itself is skipped.
  */
 
 import { readFileSync } from "node:fs";
@@ -26,7 +29,7 @@ import {
   type Rect,
   type Template,
 } from "./resolver.js";
-import { Grid, type Deck, type Header, type Image, type PrimitiveSpecT, type Shape } from "./schema.js";
+import { Grid, type Deck, type Header, type Image, type PrimitiveSpecT, type Shape, type Table } from "./schema.js";
 import { loadFontMetrics, checkOverflow, resolveFontPath, type FontMetrics } from "./validator.js";
 import { extractTextFields, parseDeck, walkPrimitives } from "./render.js";
 
@@ -35,6 +38,11 @@ const WHITESPACE_MIN_HEIGHT_PT = 300.0;
 const IMAGE_ASPECT_TOLERANCE = 0.35;
 const TIGHT_FIT_FRACTION = 0.85;
 const EM_DASH = "—";
+// A table row/column resolved smaller than these reads as cramped even
+// before any text technically overflows — same "proactive nudge" spirit
+// as the font_size check.
+const TABLE_MIN_ROW_HEIGHT_PT = 18.0;
+const TABLE_MIN_COL_WIDTH_PT = 50.0;
 
 export interface ReviewReport {
   suggestions: Record<string, unknown>[];
@@ -159,6 +167,31 @@ function checkImageFit(slideIndex: number, itemId: string, primitive: Image, rec
   return suggestion(slideIndex, itemId, "fit", "image_fit", detail, fix);
 }
 
+/** Purely geometric — no font metrics needed, so (like checkStyle) this
+ * runs even when overflow checking itself is skipped for lack of a font.
+ */
+function checkTableDensity(slideIndex: number, itemId: string, primitive: Table, rect: Rect): Record<string, unknown> | null {
+  const nRows = 1 + primitive.rows.length;
+  const nCols = primitive.headers.length;
+  const rowHeightPt = rectHeightPt(rect) / nRows;
+  const colWidthPt = rectWidthPt(rect) / nCols;
+
+  if (rowHeightPt >= TABLE_MIN_ROW_HEIGHT_PT && colWidthPt >= TABLE_MIN_COL_WIDTH_PT) return null;
+
+  const cramped: string[] = [];
+  if (rowHeightPt < TABLE_MIN_ROW_HEIGHT_PT) cramped.push(`row height ~${rowHeightPt.toFixed(0)}pt across ${nRows} rows`);
+  if (colWidthPt < TABLE_MIN_COL_WIDTH_PT) cramped.push(`column width ~${colWidthPt.toFixed(0)}pt across ${nCols} columns`);
+
+  return suggestion(
+    slideIndex,
+    itemId,
+    null,
+    "table_density",
+    `Table's resolved ${cramped.join(" and ")} is cramped for its box.`,
+    "Reduce the number of rows/columns, shrink the table's font size, or split the data across two tables/slides.",
+  );
+}
+
 export function review(spec: unknown, templateOverride?: Template): ReviewReport {
   const deck: Deck = parseDeck(spec);
   const template = templateOverride ?? loadTemplateByName(deck.template);
@@ -196,11 +229,16 @@ export function review(spec: unknown, templateOverride?: Template): ReviewReport
         if (s) suggestions.push(s);
       }
 
+      if (primitive.primitive === "table") {
+        const s = checkTableDensity(slideIndex, itemId, primitive as Table, rect);
+        if (s) suggestions.push(s);
+      }
+
       const isLoneTopLevel = itemId === loneTopLevelId && !layout.parents.has(itemId);
       const w = checkWhitespace(slideIndex, itemId, rect, isLoneTopLevel);
       if (w) suggestions.push(w);
 
-      const textFields = extractTextFields(primitive as PrimitiveSpecT | Header, rect);
+      const textFields = extractTextFields(primitive as PrimitiveSpecT | Header, rect, metrics);
 
       for (const [fieldName, text] of textFields) {
         const s = checkStyle(slideIndex, itemId, fieldName, text);

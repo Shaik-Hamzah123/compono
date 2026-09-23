@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
+## [0.4.0] - 2026-09-24
+
+### Added
+- Template branding, ported from Python compono 0.4.0: `Template` gains
+  `primaryColor`/`accentColor`/`logoPath` (from new `colors: {primary,
+  accent}`/`logo:` yaml keys), all optional/additive so every stock
+  template renders exactly as before. When set: `table`'s header row and
+  `sequence`'s step shapes use the branded colors instead of their
+  hardcoded defaults, and the header region gets a real logo picture
+  (`addImage`, sized proportionally, top-right).
+- New `compono-js template extract SOURCE.pptx NAME [-o output-dir]` CLI
+  command (host/developer-side, not agent-facing) — new
+  `templateAuthoring.ts` reads an existing corporate deck's page size
+  (via `ppt/presentation.xml`), theme accent colors + body font (via
+  `ppt/theme/theme1.xml`, `fast-xml-parser`), and a slide-master logo
+  (`<p:pic>` → its relationship → the target media file, all read
+  directly from the zip — JS has no python-pptx-style object model to
+  lean on here). Always best-effort; a missing/malformed part degrades to
+  `undefined`, never throws.
+- `table` gains `cell_fills` (per-body-cell fill overrides) and `merges`
+  (rectangular body-cell ranges merged into one), ported from Python
+  compono 0.5.0. `merges` is implemented differently than the Python
+  side's `cell.merge()`: `pptxgenjs` has no merge API of its own, so a
+  merge range's covered cells are omitted from the row array entirely and
+  the origin cell gets `colspan`/`rowspan` options instead — the row
+  array's shape *is* the merge.
+- `table` columns now size proportionally to content
+  (`tableColumnWidthsEmu`) when a font is available, ported from Python
+  compono 0.4.1 — falls back to the previous even split otherwise.
+- `review()` gains a `table_density` suggestion category (purely
+  geometric row-height/column-width thresholds), ported from Python
+  compono 0.4.1.
+- New `gantt` primitive, ported from Python compono 0.5.0: fully collapses
+  into a synthesized `table` at layout time (`resolver.ts`'s
+  `layoutGantt`) — `render.ts` needs zero new code for it at all.
+
 ## [0.3.0] - 2026-09-13
 
 ### Added

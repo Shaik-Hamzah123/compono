@@ -16,6 +16,8 @@
 // use ourselves (constructable, addSlide/addText/addShape/addTable/
 // addChart/addImage/defineLayout/writeFile) — a structural type, not a
 // reimplementation of pptxgenjs's full API.
+import { readFileSync } from "node:fs";
+import { imageSize } from "image-size";
 import PptxGenJSImport from "pptxgenjs";
 import { z } from "zod";
 
@@ -44,7 +46,14 @@ import {
   type Template,
 } from "./resolver.js";
 import { Deck, type Chart, type Header, type PrimitiveSpecT, type Sequence, type Shape, type Stat, type Table, type Text } from "./schema.js";
-import { buildOverflowError, checkOverflow, loadFontMetrics, resolveFontPath, type FontMetrics } from "./validator.js";
+import {
+  buildOverflowError,
+  checkOverflow,
+  loadFontMetrics,
+  measureTextWidthPt,
+  resolveFontPath,
+  type FontMetrics,
+} from "./validator.js";
 
 const HEADER_FONT_SIZE_PT = 28;
 const BODY_FONT_SIZE_PT = 18;
@@ -96,20 +105,57 @@ export function parseDeck(spec: unknown): Deck {
   return result.data;
 }
 
-/** Even, floor-divided split of the table's overall rect into per-cell
- * boxes — row 0 is the header row. The schema has no per-column-width hint,
- * so an even split is the accepted v1 approximation; any leftover EMUs
- * from the floor division are simply unassigned padding, not distributed
- * to any particular cell.
+const TABLE_MIN_COL_WIDTH_PT = 40.0;
+
+/** Column widths (EMU, summing exactly to `rect.w`) proportional to each
+ * column's longest measured cell, clamped to `TABLE_MIN_COL_WIDTH_PT` so no
+ * column collapses to nothing. Returns `null` when no font is available to
+ * measure with — the caller falls back to an even split rather than faking
+ * a proportional one (same "never fakes" pattern as overflow validation).
  */
-export function tableCellRects(rect: Rect, numCols: number, numRows: number): Rect[][] {
-  const colW = Math.trunc(rect.w / numCols);
+export function tableColumnWidthsEmu(
+  headers: string[],
+  rows: string[][],
+  rect: Rect,
+  fontMetrics: FontMetrics | null,
+): number[] | null {
+  if (!fontMetrics) return null;
+  const rawWidthsPt = headers.map((header, c) => {
+    const candidates = [header, ...rows.map((row) => row[c])];
+    return Math.max(...candidates.map((text) => measureTextWidthPt(text, fontMetrics, TABLE_FONT_SIZE_PT)));
+  });
+  const clampedPt = rawWidthsPt.map((w) => Math.max(TABLE_MIN_COL_WIDTH_PT, w));
+  const totalPt = clampedPt.reduce((a, b) => a + b, 0);
+  const widthsEmu = clampedPt.map((w) => Math.round((w / totalPt) * rect.w));
+  // Floor/round drift must not change the total — the last column absorbs
+  // it rather than leaving a gap or overrunning rect.w.
+  widthsEmu[widthsEmu.length - 1] += rect.w - widthsEmu.reduce((a, b) => a + b, 0);
+  return widthsEmu;
+}
+
+/** Split the table's overall rect into per-cell boxes — row 0 is the
+ * header row. `colWidths` (EMU, one per column, summing to `rect.w`) come
+ * from `tableColumnWidthsEmu` when a font is available; omitted falls back
+ * to an even, floor-divided split (the original v1 approximation), with
+ * any leftover EMUs from that floor division left as unassigned padding,
+ * not distributed to any particular cell.
+ */
+export function tableCellRects(
+  rect: Rect,
+  numCols: number,
+  numRows: number,
+  colWidths?: number[] | null,
+): Rect[][] {
+  const widths = colWidths ?? Array(numCols).fill(Math.trunc(rect.w / numCols));
+  const colX = [rect.x];
+  for (const w of widths.slice(0, -1)) colX.push(colX[colX.length - 1] + w);
+
   const rowH = Math.trunc(rect.h / numRows);
   return Array.from({ length: numRows }, (_, r) =>
     Array.from({ length: numCols }, (_, c) => ({
-      x: rect.x + c * colW,
+      x: colX[c],
       y: rect.y + r * rowH,
-      w: colW,
+      w: widths[c],
       h: rowH,
     })),
   );
@@ -138,6 +184,7 @@ export function sequenceStepRects(rect: Rect, numSteps: number): Rect[] {
 export function extractTextFields(
   primitive: PrimitiveSpecT | Header,
   rect: Rect,
+  fontMetrics: FontMetrics | null = null,
 ): [string, string, number, Rect | null][] {
   switch (primitive.primitive) {
     case "header":
@@ -157,7 +204,8 @@ export function extractTextFields(
       const table = primitive as Table;
       const numCols = table.headers.length;
       const numRows = 1 + table.rows.length; // row 0 = headers
-      const cellRects = tableCellRects(rect, numCols, numRows);
+      const colWidths = tableColumnWidthsEmu(table.headers, table.rows, rect, fontMetrics);
+      const cellRects = tableCellRects(rect, numCols, numRows, colWidths);
       const fields: [string, string, number, Rect | null][] = table.headers.map((header, c) => [
         `headers[${c}]`,
         header,
@@ -216,7 +264,7 @@ function checkSlideOverflow(
   for (const [id, rect] of result.rects) {
     const primitive = result.items.get(id);
     if (!primitive) continue;
-    for (const [field, text, fontSizePt, subRect] of extractTextFields(primitive, rect)) {
+    for (const [field, text, fontSizePt, subRect] of extractTextFields(primitive, rect, metrics)) {
       const checkRect = subRect ?? rect;
       const boxWidthPt = emuToIn(checkRect.w) * 72;
       const boxHeightPt = emuToIn(checkRect.h) * 72;
@@ -298,6 +346,9 @@ export async function renderDeck(spec: unknown, outputPath: string, templateOver
     throw new DeckValidationError(report.errors);
   }
 
+  const fontPath = resolveFontPath(template);
+  const fontMetrics: FontMetrics | null = fontPath ? loadFontMetrics(fontPath) : null;
+
   const pres = new PptxGenJS();
   pres.defineLayout({ name: "COMPONO", width: emuToIn(template.pageWidth), height: emuToIn(template.pageHeight) });
   pres.layout = "COMPONO";
@@ -325,7 +376,7 @@ export async function renderDeck(spec: unknown, outputPath: string, templateOver
       const primitive = layout.items.get(itemId);
       if (!primitive || primitive.primitive === "header") continue;
       if (primitive.primitive === "shape" && (primitive as Shape).kind === "connector") continue; // drawn below from layout.connectors
-      renderPrimitive(pptxSlide, primitive as PrimitiveSpecT, rect, template, slideIndex, itemId, manifest);
+      renderPrimitive(pptxSlide, primitive as PrimitiveSpecT, rect, template, slideIndex, itemId, manifest, fontMetrics);
     }
 
     for (const points of layout.connectors.values()) {
@@ -348,6 +399,7 @@ function renderPrimitive(
   slideIndex: number,
   itemId: string,
   manifest: Record<string, unknown>[],
+  fontMetrics: FontMetrics | null = null,
 ): void {
   switch (primitive.primitive) {
     case "text":
@@ -363,7 +415,7 @@ function renderPrimitive(
       renderStat(slide, primitive, rect, template);
       break;
     case "table":
-      renderTable(slide, primitive, rect, template);
+      renderTable(slide, primitive, rect, template, fontMetrics);
       break;
     case "sequence":
       renderSequence(slide, primitive, rect, template);
@@ -373,8 +425,10 @@ function renderPrimitive(
       break;
     case "grid":
     case "diagram":
-      // Grid/Diagram have no visual of their own — only their (already-flattened)
-      // children render (Diagram nodes are synthesized as real Shape instances).
+    case "gantt":
+      // Grid/Diagram/Gantt have no visual of their own — only their
+      // (already-flattened) children render (Diagram nodes are synthesized
+      // as real Shape instances; Gantt fully collapses into a real Table).
       break;
   }
 }
@@ -410,6 +464,19 @@ function renderHeader(slide: PptxSlideLike, header: Header, rect: Rect, template
       align: header.align,
     });
   }
+  if (template.logoPath) {
+    // Sized proportionally to header height, pinned to the top-right —
+    // additive only: unset (the default for every stock template) means
+    // byte-identical output to before this field existed.
+    const logoH = box.h * 0.6;
+    const logoY = box.y + (box.h - logoH) / 2;
+    const dims = imageSize(readFileSync(template.logoPath));
+    const aspect = (dims.width ?? 1) / (dims.height ?? 1);
+    const logoW = logoH * aspect;
+    const logoX = box.x + box.w - logoW;
+    slide.addImage({ path: template.logoPath, x: logoX, y: logoY, w: logoW, h: logoH });
+  }
+
   if (header.subtitle) {
     slide.addText(header.subtitle, {
       x: box.x,
@@ -582,28 +649,85 @@ const TABLE_HEADER_FILL = "4A7FC2";
 const TABLE_ROW_FILL = "D9E2F3";
 const TABLE_EMPHASIS_ROW_FILL = "EAF0FB";
 
-function renderTable(slide: PptxSlideLike, table: Table, rect: Rect, template: Template): void {
+interface MergeInfo {
+  originSpans: Map<string, { rowspan: number; colspan: number }>;
+  covered: Set<string>;
+}
+
+/** `merges`' rectangular ranges collapse to pptxgenjs's colspan/rowspan
+ * model: the origin (top-left) cell gets `colspan`/`rowspan` options, and
+ * every other cell in the range must be omitted from its row's array
+ * entirely — unlike python-pptx's post-hoc `cell.merge()` call, pptxgenjs
+ * has no merge API of its own; the row array's shape *is* the merge.
+ */
+function buildMergeInfo(merges: Table["merges"]): MergeInfo {
+  const originSpans = new Map<string, { rowspan: number; colspan: number }>();
+  const covered = new Set<string>();
+  for (const m of merges ?? []) {
+    originSpans.set(`${m.row1},${m.col1}`, {
+      rowspan: m.row2 - m.row1 + 1,
+      colspan: m.col2 - m.col1 + 1,
+    });
+    for (let r = m.row1; r <= m.row2; r++) {
+      for (let c = m.col1; c <= m.col2; c++) {
+        if (r === m.row1 && c === m.col1) continue;
+        covered.add(`${r},${c}`);
+      }
+    }
+  }
+  return { originSpans, covered };
+}
+
+function renderTable(
+  slide: PptxSlideLike,
+  table: Table,
+  rect: Rect,
+  template: Template,
+  fontMetrics: FontMetrics | null = null,
+): void {
   const box = rectIn(rect);
   const headerRow = table.headers.map((h) => ({
     text: h,
-    options: { bold: true, fill: { color: TABLE_HEADER_FILL }, color: "FFFFFF" },
+    options: {
+      bold: true,
+      fill: { color: (template.primaryColor ?? TABLE_HEADER_FILL).replace("#", "") },
+      color: "FFFFFF",
+    },
   }));
+
+  const cellFills = new Map((table.cell_fills ?? []).map((cf) => [`${cf.row},${cf.col}`, cf.fill]));
+  const { originSpans, covered } = buildMergeInfo(table.merges);
+
   const bodyRows = table.rows.map((row, rowIndex) =>
-    row.map((cell, colIndex) => ({
-      text: cell,
-      options: {
-        bold: rowIndex === table.emphasis_row,
-        fill: {
-          color: rowIndex === table.emphasis_row ? TABLE_EMPHASIS_ROW_FILL : TABLE_ROW_FILL,
-        },
-        // emphasis_col gets a slightly stronger tint than the row default —
-        // still visually distinct even when it coincides with emphasis_row.
-        ...(colIndex === table.emphasis_col ? { bold: true } : {}),
-      },
-    })),
+    row
+      .map((cell, colIndex) => {
+        if (covered.has(`${rowIndex},${colIndex}`)) return null;
+        const fillOverride = cellFills.get(`${rowIndex},${colIndex}`);
+        const span = originSpans.get(`${rowIndex},${colIndex}`);
+        return {
+          text: cell,
+          options: {
+            bold: rowIndex === table.emphasis_row || colIndex === table.emphasis_col,
+            fill: {
+              color: fillOverride
+                ? fillOverride.replace("#", "")
+                : rowIndex === table.emphasis_row
+                  ? TABLE_EMPHASIS_ROW_FILL
+                  : TABLE_ROW_FILL,
+            },
+            ...(span && span.rowspan > 1 ? { rowspan: span.rowspan } : {}),
+            ...(span && span.colspan > 1 ? { colspan: span.colspan } : {}),
+          },
+        };
+      })
+      .filter((cell): cell is NonNullable<typeof cell> => cell !== null),
   );
   const rows: unknown[] = [headerRow, ...bodyRows];
-  slide.addTable(rows, { ...box, fontFace: template.fontFamily, fontSize: TABLE_FONT_SIZE_PT });
+
+  const colWidthsEmu = tableColumnWidthsEmu(table.headers, table.rows, rect, fontMetrics);
+  const colW = colWidthsEmu ? colWidthsEmu.map((w) => emuToIn(w)) : undefined;
+
+  slide.addTable(rows, { ...box, fontFace: template.fontFamily, fontSize: TABLE_FONT_SIZE_PT, ...(colW ? { colW } : {}) });
 }
 
 function renderSequence(
@@ -627,7 +751,7 @@ function renderSequence(
       y,
       w: stepW * 0.9,
       h: stepH * 0.6,
-      fill: { color: "2A6FDB" },
+      fill: { color: (template.accentColor ?? "2A6FDB").replace("#", "") },
       line: { type: "none" },
     });
     slide.addText(step.label, {

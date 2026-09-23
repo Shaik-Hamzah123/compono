@@ -243,4 +243,38 @@ describe("review", () => {
     };
     expect(() => review(spec)).not.toThrow();
   });
+
+  it("flags table_density when rows leave a cramped row height", () => {
+    const spec = {
+      slides: [
+        {
+          header: { title: "Cramped table" },
+          body: [
+            {
+              primitive: "table",
+              headers: ["A", "B"],
+              rows: Array.from({ length: 29 }, () => ["x", "y"]),
+            },
+          ],
+        },
+      ],
+    };
+    const report = review(spec);
+    const density = report.suggestions.filter((s) => s.category === "table_density");
+    expect(density).toHaveLength(1);
+    expect(density[0].detail as string).toContain("row height");
+  });
+
+  it("does not flag table_density for a small table", () => {
+    const spec = {
+      slides: [
+        {
+          header: { title: "Fine table" },
+          body: [{ primitive: "table", headers: ["Metric", "Value"], rows: [["Revenue", "$1.2M"]] }],
+        },
+      ],
+    };
+    const report = review(spec);
+    expect(report.suggestions.filter((s) => s.category === "table_density")).toEqual([]);
+  });
 });

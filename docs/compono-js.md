@@ -28,11 +28,18 @@ npm install @skhamzah123/compono-js
   `stat`, `grid`, `table`, `sequence`, `chart`, `shape` including
   connector routing), plus the post-v1 `diagram` primitive (node-graph
   flowcharts — `nodes`/`edges`, auto linear-chain if `edges` omitted,
-  per-node style overrides), same resolver algorithm (flex-equal body
-  stacking, 2D grid math, Liang-Barsky connector-routing with gutter-detour
-  fallback — `diagram`'s edges reuse this same router), same overflow
-  validator (real glyph advance widths via `fontkit` in place of
-  `fontTools`).
+  per-node style overrides) and `gantt` (a Gantt/timeline chart that fully
+  collapses into a synthesized `table`), same resolver algorithm
+  (flex-equal body stacking, 2D grid math, Liang-Barsky connector-routing
+  with gutter-detour fallback — `diagram`'s edges reuse this same
+  router), same overflow validator (real glyph advance widths via
+  `fontkit` in place of `fontTools`). `table` also has `cell_fills`
+  (per-cell color overrides), `merges` (rectangular cell ranges — via
+  `pptxgenjs`'s `colspan`/`rowspan`, since it has no `cell.merge()`
+  equivalent), and content-proportional column widths. Templates can set
+  `colors: {primary, accent}`/`logo:` for branded table headers/sequence
+  steps/a header logo picture — see "Template branding" and `compono-js
+  template extract` below.
 - **`review()`**: same 5 categories (contrast, whitespace, image_fit,
   font_size, style), same thresholds — see [API reference](api-reference.md)
   for what each one checks; the Python and JS implementations check
@@ -86,9 +93,29 @@ npx --package=@skhamzah123/compono-js compono-js review spec.json
 npx --package=@skhamzah123/compono-js compono-js docx validate doc_spec.json
 npx --package=@skhamzah123/compono-js compono-js docx render doc_spec.json -o report.docx
 npx --package=@skhamzah123/compono-js compono-js inspire scan decks/ -o skills/inspire-myteam/
+npx --package=@skhamzah123/compono-js compono-js template extract corporate_master.pptx acme -o templates/
 ```
 
 Same verb-for-verb shape as the [Python CLI](cli.md).
+
+## Template branding
+
+A template yaml can optionally set `colors: {primary, accent}` and
+`logo: <path>` (relative to the yaml's own directory). When set: `table`'s
+header row fills with `primary` (white text), `sequence` step shapes fill
+with `accent`, and the header region gets a real logo picture
+(`addImage`) in its top-right corner. All three are additive — omitted
+(every stock template today) renders exactly as before.
+
+`compono-js template extract SOURCE.pptx NAME [-o output-dir]` is a
+**developer/host-side** command, not agent-facing: it drafts a new
+branded `templates/<name>.yaml` by reading an existing corporate deck's
+page size, theme accent colors, theme font, and slide-master logo — all
+best-effort (a missing/malformed part degrades to leaving that field
+unset, never a crash). The written yaml is a draft to review before
+committing, same as any hand-authored template; a spec's own `template`
+field still only ever names a file already under `templates/`, so this
+doesn't open any new agent-facing template-injection surface.
 
 ## MCP
 
@@ -136,3 +163,9 @@ primitives).
   resolved.
 - `chart` in docx is a rasterized image, not an editable native Word
   chart (same caveat as the Python side).
+- No chart color theming: `colors.primary`/`accent` apply to `table`/
+  `sequence` only, not chart series (same limitation as the Python side).
+- `template extract`'s theme reading assumes `ppt/theme/theme1.xml` and
+  `ppt/slideMasters/slideMaster1.xml` (the common case) rather than
+  resolving the correct part via its actual relationship — an unusual
+  deck with multiple masters/themes may extract from the wrong one.

@@ -1,6 +1,6 @@
 {
   "name": "@skhamzah123/compono-js",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Agent-oriented, code-based PPTX/DOCX generation for TypeScript/JS — typed primitives, no raw coordinates.",
   "type": "module",
   "license": "MIT",
@@ -31,13 +31,13 @@
     "fast-xml-parser": "^5.11.1",
     "fontkit": "^2.0.4",
     "image-size": "^2.0.2",
+    "jszip": "^3.10.1",
     "pptxgenjs": "^3.12.0",
     "yaml": "^2.5.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.7.5",
-    "jszip": "^3.10.1",
     "typescript": "^5.6.3",
     "vitest": "^2.1.2"
   }

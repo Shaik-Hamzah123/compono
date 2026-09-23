@@ -12,14 +12,26 @@
  * are synthesized as real `Shape` primitives at layout time
  * (`layoutDiagram`) and its edges resolve in that same second pass
  * (`resolveDiagramConnectors`) via the connector router — this is why no
- * render.ts changes were needed to support it.
+ * render.ts changes were needed to support it. `gantt` (`layoutGantt`)
+ * goes one step further: it fully collapses into a synthesized `table` at
+ * its own id, so render.ts needs zero code for it at all.
  */
 
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
-import type { Diagram, DiagramEdge, Grid, Header, PrimitiveSpecT, Shape } from "./schema.js";
+import type {
+  Diagram,
+  DiagramEdge,
+  Gantt,
+  Grid,
+  Header,
+  PrimitiveSpecT,
+  Shape,
+  Table,
+  TableCellFill,
+} from "./schema.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_TEMPLATE_DIR = join(__dirname, "..", "templates");
@@ -40,6 +52,9 @@ export interface Template {
   footerHeight: number;
   gutter: number;
   fontFamily: string;
+  primaryColor?: string;
+  accentColor?: string;
+  logoPath?: string;
 }
 
 interface TemplateYaml {
@@ -50,6 +65,8 @@ interface TemplateYaml {
   footer: { height_in: number };
   gutter_in: number;
   font_family?: string;
+  colors?: { primary?: string; accent?: string };
+  logo?: string;
 }
 
 export function loadTemplateFromYaml(path: string): Template {
@@ -65,6 +82,9 @@ export function loadTemplateFromYaml(path: string): Template {
     footerHeight: inToEmu(data.footer.height_in),
     gutter: inToEmu(data.gutter_in),
     fontFamily: data.font_family ?? "Calibri",
+    primaryColor: data.colors?.primary,
+    accentColor: data.colors?.accent,
+    logoPath: data.logo ? join(dirname(path), data.logo) : undefined,
   };
 }
 
@@ -120,6 +140,10 @@ function isGrid(item: PrimitiveSpecT): item is Grid {
 
 function isDiagram(item: PrimitiveSpecT): item is Diagram {
   return item.primitive === "diagram";
+}
+
+function isGantt(item: PrimitiveSpecT): item is Gantt {
+  return item.primitive === "gantt";
 }
 
 export function resolveSlide(
@@ -186,6 +210,8 @@ function placeItem(
     layoutGrid(item, rect, template, result, itemId);
   } else if (isDiagram(item)) {
     layoutDiagram(item, rect, template, result, itemId);
+  } else if (isGantt(item)) {
+    layoutGantt(item, rect, template, result, itemId);
   }
 }
 
@@ -286,6 +312,46 @@ function defaultDiagramEdges(diagram: Diagram): DiagramEdge[] {
     edges.push({ from: String(i), to: String(i + 1) });
   }
   return edges;
+}
+
+// --- Gantt layout (fully collapses into a synthesized Table) ---
+
+/** A Gantt/timeline chart collapses into a single synthesized `table` at
+ * the gantt's own id — one row per task, one column per time unit (plus a
+ * leading task-label column), with each task's active span colored via
+ * `table.cell_fills`. Unlike `layoutDiagram` (which places several *child*
+ * shapes under the diagram's id), this fully replaces the `Gantt` entry in
+ * `result.items` with the synthesized `Table` — render.ts never needs to
+ * know `gantt` exists at all.
+ */
+function layoutGantt(
+  gantt: Gantt,
+  rect: Rect,
+  template: Template,
+  result: LayoutResult,
+  itemId: string,
+): void {
+  const headers = ["Task", ...gantt.unit_labels];
+  const rows = gantt.tasks.map((task) => [task.label, ...Array(gantt.unit_labels.length).fill("")]);
+  const cellFills: TableCellFill[] = [];
+  gantt.tasks.forEach((task, r) => {
+    for (let c = task.start_unit; c < task.start_unit + task.duration_units; c++) {
+      cellFills.push({ row: r, col: c + 1, fill: task.fill ?? gantt.task_fill });
+    }
+  });
+
+  const syntheticTable: Table = {
+    primitive: "table",
+    id: null,
+    notes: null,
+    headers,
+    rows,
+    emphasis_row: null,
+    emphasis_col: null,
+    cell_fills: cellFills,
+    merges: null,
+  };
+  placeItem(syntheticTable, rect, template, result, itemId);
 }
 
 function iterShapes(items: PrimitiveSpecT[]): Shape[] {

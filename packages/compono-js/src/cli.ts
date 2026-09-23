@@ -10,10 +10,11 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { Command } from "commander";
 import { DeckValidationError, renderDeck, validate } from "./render.js";
-import { loadTemplateByName } from "./resolver.js";
+import { DEFAULT_TEMPLATE_DIR, loadTemplateByName } from "./resolver.js";
 import { review } from "./review.js";
 import { DocxValidationError, renderDocx, validateDocx } from "./docx.js";
 import { aggregate, writeSkill } from "./inspire.js";
+import { extractTemplateData, writeExtractedTemplate } from "./templateAuthoring.js";
 
 function loadSpec(path: string): unknown {
   return JSON.parse(readFileSync(path, "utf-8"));
@@ -120,6 +121,41 @@ inspireProgram
           profile_json: files.profileJson,
           n_decks_scanned: profile.n_example_decks,
           warnings: profile.warnings,
+        },
+        null,
+        2,
+      ),
+    );
+  });
+
+const templateProgram = program.command("template").description("Developer-side template tooling (not agent-facing).");
+
+templateProgram
+  .command("extract")
+  .description(
+    "Draft a new templates/<name>.yaml from an existing .pptx's page size, theme accent " +
+      "colors, theme font, and master logo. Best-effort — review the written yaml before " +
+      "committing it, same as any hand-authored template.",
+  )
+  .argument("<source>", "Path to the source .pptx.")
+  .argument("<name>", "Name for the new template.")
+  .option(
+    "-o, --output-dir <dir>",
+    "Directory to write <name>.yaml (and assets/<name>-logo.* if a logo was found) into. " +
+      "Defaults to compono-js's own bundled templates/.",
+    DEFAULT_TEMPLATE_DIR,
+  )
+  .action(async (source: string, name: string, opts: { outputDir: string }) => {
+    const data = await extractTemplateData(source);
+    const yamlPath = writeExtractedTemplate(data, name, opts.outputDir);
+    console.log(
+      JSON.stringify(
+        {
+          template_yaml: yamlPath,
+          font_family: data.fontFamily ?? null,
+          primary_color: data.primaryColor ?? null,
+          accent_color: data.accentColor ?? null,
+          logo_found: data.logoBytes !== undefined,
         },
         null,
         2,

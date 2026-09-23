@@ -11,7 +11,9 @@
  * shape; plus `diagram`, added post-v1 (a node-graph flowchart whose nodes/
  * edges are synthesized as `shape` primitives at layout time by
  * resolver.ts's `layoutDiagram` — ported from Python compono's `diagram`
- * primitive, same design).
+ * primitive, same design); plus `table.cell_fills`/`merges` and `gantt`
+ * (a Gantt/timeline chart that fully collapses into a synthesized `table`
+ * at layout time via resolver.ts's `layoutGantt`), also ported from Python.
  */
 
 import { z } from "zod";
@@ -213,6 +215,31 @@ export const Stat = z
   .strict();
 export type Stat = z.infer<typeof Stat>;
 
+export const TableCellFill = z
+  .object({
+    row: z.number().int().describe("0-based index into `rows` (not counting the header row)."),
+    col: z.number().int().describe("0-based index into `headers`."),
+    fill: z.string().describe("Fill color for this cell, e.g. a hex string."),
+  })
+  .strict();
+export type TableCellFill = z.infer<typeof TableCellFill>;
+
+export const TableCellMerge = z
+  .object({
+    row1: z.number().int().describe("0-based index into `rows` of one corner of the range."),
+    col1: z.number().int().describe("0-based index into `headers` of one corner of the range."),
+    row2: z
+      .number()
+      .int()
+      .describe("0-based index into `rows` of the opposite corner (inclusive)."),
+    col2: z
+      .number()
+      .int()
+      .describe("0-based index into `headers` of the opposite corner (inclusive)."),
+  })
+  .strict();
+export type TableCellMerge = z.infer<typeof TableCellMerge>;
+
 export const Table = z
   .object({
     primitive: z.literal("table").default("table"),
@@ -234,11 +261,69 @@ export const Table = z
       .nullable()
       .default(null)
       .describe("0-based index (into headers) of a column to visually emphasize."),
+    cell_fills: z
+      .array(TableCellFill)
+      .nullable()
+      .default(null)
+      .describe(
+        "Per-cell fill color overrides for body cells (never the header row). Useful for " +
+          "highlighting specific data points, or for building a Gantt/timeline-style table " +
+          "by coloring a task's active span of cells.",
+      ),
+    merges: z
+      .array(TableCellMerge)
+      .nullable()
+      .default(null)
+      .describe(
+        "Rectangular ranges of body cells to merge into one, e.g. a category label spanning " +
+          "several rows. The merged cell keeps only the range's top-left cell's text — every " +
+          "other cell in the range is cleared, so it's fine if `rows` repeats the same value " +
+          "across cells you intend to merge.",
+      ),
   })
   .strict()
   .refine((v) => v.rows.every((row) => row.length === v.headers.length), {
     message: "rows do not have the same length as headers.",
-  });
+  })
+  .refine(
+    (v) =>
+      !v.cell_fills ||
+      v.cell_fills.every(
+        (cf) => cf.row >= 0 && cf.row < v.rows.length && cf.col >= 0 && cf.col < v.headers.length,
+      ),
+    { message: "cell_fills reference cell(s) outside the table's rows/headers bounds." },
+  )
+  .refine(
+    (v) => {
+      if (!v.merges) return true;
+      const nRows = v.rows.length;
+      const nCols = v.headers.length;
+      return v.merges.every(
+        (m) => m.row1 <= m.row2 && m.col1 <= m.col2 && m.row1 >= 0 && m.col1 >= 0 && m.row2 < nRows && m.col2 < nCols,
+      );
+    },
+    {
+      message:
+        "merges reference cell(s) outside the table's rows/headers bounds, or have row1>row2/col1>col2.",
+    },
+  )
+  .refine(
+    (v) => {
+      if (!v.merges) return true;
+      const covered = new Set<string>();
+      for (const m of v.merges) {
+        for (let r = m.row1; r <= m.row2; r++) {
+          for (let c = m.col1; c <= m.col2; c++) {
+            const key = `${r},${c}`;
+            if (covered.has(key)) return false;
+            covered.add(key);
+          }
+        }
+      }
+      return true;
+    },
+    { message: "merges overlap another merge's range." },
+  );
 export type Table = z.infer<typeof Table>;
 
 export const SequenceStep = z
@@ -375,6 +460,53 @@ export const Diagram = z
   );
 export type Diagram = z.infer<typeof Diagram>;
 
+export const GanttTask = z
+  .object({
+    label: z.string().describe("Task name, shown in the leftmost column."),
+    start_unit: z
+      .number()
+      .int()
+      .min(0)
+      .describe("0-based index of the first time-unit column this task is active in."),
+    duration_units: z
+      .number()
+      .int()
+      .min(1)
+      .describe("Number of consecutive time-unit columns this task spans."),
+    fill: z
+      .string()
+      .nullable()
+      .default(null)
+      .describe("Fill color for this task's active cells. Overrides the gantt's own `task_fill`."),
+  })
+  .strict();
+export type GanttTask = z.infer<typeof GanttTask>;
+
+export const Gantt = z
+  .object({
+    primitive: z.literal("gantt").default("gantt"),
+    ...primitiveBase,
+    tasks: z.array(GanttTask).min(1).describe("Tasks, one per row, in order."),
+    unit_labels: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        "Column header for each time unit, e.g. ['Wk 1', 'Wk 2', ...]. Its length is the " +
+          "total number of time-unit columns. Plain strings only — no date math happens on " +
+          "compono's side.",
+      ),
+    task_fill: z
+      .string()
+      .default("#2A6FDB")
+      .describe("Default fill color for a task's active cells; override per task via `GanttTask.fill`."),
+  })
+  .strict()
+  .refine(
+    (v) => v.tasks.every((task) => task.start_unit + task.duration_units <= v.unit_labels.length),
+    { message: "tasks extend past the last unit_labels column." },
+  );
+export type Gantt = z.infer<typeof Gantt>;
+
 // Grid is self-referential (items: PrimitiveSpec[], which includes Grid
 // itself) — z.lazy() plays the role schema.py's forward-ref string +
 // Grid.model_rebuild() plays in pydantic.
@@ -428,7 +560,7 @@ export const Grid = z.lazy(() =>
 // literal still discriminates at runtime), just with less specialized
 // error messages than discriminatedUnion would give.
 export const PrimitiveSpec = z.lazy(() =>
-  z.union([Header, Text, Image, Stat, Grid, Table, Sequence, Chart, Shape, Diagram]),
+  z.union([Header, Text, Image, Stat, Grid, Table, Sequence, Chart, Shape, Diagram, Gantt]),
 ) as unknown as z.ZodType<PrimitiveSpecT, z.ZodTypeDef, unknown>;
 export type PrimitiveSpecT =
   | Header
@@ -440,7 +572,8 @@ export type PrimitiveSpecT =
   | Sequence
   | Chart
   | Shape
-  | Diagram;
+  | Diagram
+  | Gantt;
 
 export const Slide = z
   .object({

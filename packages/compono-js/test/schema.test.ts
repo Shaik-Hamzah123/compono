@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Chart, Deck, Diagram, Grid, Image, Sequence, Table } from "../src/schema.js";
+import { Chart, Deck, Diagram, Gantt, Grid, Image, Sequence, Table } from "../src/schema.js";
 
 describe("schema", () => {
   it("accepts a minimal valid deck", () => {
@@ -118,5 +118,103 @@ describe("schema", () => {
 
   it("rejects an empty nodes list", () => {
     expect(() => Diagram.parse({ nodes: [] })).toThrow();
+  });
+
+  it("accepts valid table cell_fills", () => {
+    const t = Table.parse({
+      headers: ["Name", "Score"],
+      rows: [["Alice", "90"], ["Bob", "85"]],
+      cell_fills: [{ row: 0, col: 1, fill: "#2A6FDB" }],
+    });
+    expect(t.cell_fills?.[0]).toMatchObject({ row: 0, col: 1, fill: "#2A6FDB" });
+  });
+
+  it("rejects table cell_fills outside bounds", () => {
+    expect(() =>
+      Table.parse({
+        headers: ["Name", "Score"],
+        rows: [["Alice", "90"]],
+        cell_fills: [{ row: 5, col: 0, fill: "#2A6FDB" }],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts valid table merges", () => {
+    const t = Table.parse({
+      headers: ["Region", "Q1", "Q2"],
+      rows: [["North", "10", "12"], ["North", "11", "13"]],
+      merges: [{ row1: 0, col1: 0, row2: 1, col2: 0 }],
+    });
+    expect(t.merges?.[0].row2).toBe(1);
+  });
+
+  it("rejects table merges outside bounds", () => {
+    expect(() =>
+      Table.parse({
+        headers: ["A", "B"],
+        rows: [["1", "2"]],
+        merges: [{ row1: 0, col1: 0, row2: 5, col2: 0 }],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an inverted table merge range", () => {
+    expect(() =>
+      Table.parse({
+        headers: ["A", "B"],
+        rows: [["1", "2"], ["3", "4"]],
+        merges: [{ row1: 1, col1: 0, row2: 0, col2: 0 }],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects overlapping table merges", () => {
+    expect(() =>
+      Table.parse({
+        headers: ["A", "B"],
+        rows: [["1", "2"], ["3", "4"], ["5", "6"]],
+        merges: [
+          { row1: 0, col1: 0, row2: 1, col2: 0 },
+          { row1: 1, col1: 0, row2: 2, col2: 0 },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("accepts a minimal gantt", () => {
+    const g = Gantt.parse({
+      unit_labels: ["Wk 1", "Wk 2", "Wk 3"],
+      tasks: [{ label: "Discovery", start_unit: 0, duration_units: 2 }],
+    });
+    expect(g.primitive).toBe("gantt");
+    expect(g.task_fill).toBe("#2A6FDB");
+    expect(g.tasks[0].fill).toBeNull();
+  });
+
+  it("accepts a per-task gantt fill override", () => {
+    const g = Gantt.parse({
+      unit_labels: ["Wk 1", "Wk 2"],
+      tasks: [{ label: "A", start_unit: 0, duration_units: 1, fill: "#D9534F" }],
+    });
+    expect(g.tasks[0].fill).toBe("#D9534F");
+  });
+
+  it("rejects a gantt task extending past unit_labels", () => {
+    expect(() =>
+      Gantt.parse({
+        unit_labels: ["Wk 1", "Wk 2"],
+        tasks: [{ label: "Too long", start_unit: 1, duration_units: 2 }],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects an empty gantt tasks list", () => {
+    expect(() => Gantt.parse({ unit_labels: ["Wk 1"], tasks: [] })).toThrow();
+  });
+
+  it("rejects an empty gantt unit_labels list", () => {
+    expect(() =>
+      Gantt.parse({ unit_labels: [], tasks: [{ label: "A", start_unit: 0, duration_units: 1 }] }),
+    ).toThrow();
   });
 });
