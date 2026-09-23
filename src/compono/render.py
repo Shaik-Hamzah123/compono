@@ -55,6 +55,7 @@ from compono.validator import (
     build_overflow_error,
     check_overflow,
     load_font_metrics,
+    measure_text_width_pt,
     resolve_safe_font,
 )
 
@@ -157,18 +158,69 @@ def _parse_deck(spec: dict[str, Any] | Deck) -> Deck:
         ) from exc
 
 
-def _table_cell_rects(rect: Rect, num_cols: int, num_rows: int) -> list[list[Rect]]:
-    """Even, floor-divided split of the table's overall rect into per-cell
-    boxes — row 0 is the header row. The schema has no per-column-width hint
-    (COMPONO_PLAN.md), so an even split is the accepted v1 approximation;
-    any leftover EMUs from the floor division are simply unassigned padding,
-    not distributed to any particular cell.
+_TABLE_MIN_COL_WIDTH_PT = 40.0
+
+
+def _table_column_widths_emu(
+    headers: list[str],
+    rows: list[list[str]],
+    rect: Rect,
+    font_metrics: FontMetrics | None,
+) -> list[int] | None:
+    """Column widths (EMU, summing exactly to `rect.w`) proportional to each
+    column's longest measured cell, clamped to `_TABLE_MIN_COL_WIDTH_PT` so
+    no column collapses to nothing. Returns `None` when no font is available
+    to measure with — the caller falls back to an even split rather than
+    faking a proportional one (same "never fakes" pattern as overflow
+    validation itself).
     """
-    col_w = rect.w // num_cols
+    if font_metrics is None:
+        return None
+
+    num_cols = len(headers)
+    raw_widths_pt = []
+    for c in range(num_cols):
+        candidates = [headers[c]] + [row[c] for row in rows]
+        raw_widths_pt.append(
+            max(
+                measure_text_width_pt(text, font_metrics, TABLE_FONT_SIZE_PT)
+                for text in candidates
+            )
+        )
+    clamped_pt = [max(_TABLE_MIN_COL_WIDTH_PT, w) for w in raw_widths_pt]
+    total_pt = sum(clamped_pt)
+
+    widths_emu = [round(w / total_pt * rect.w) for w in clamped_pt]
+    # Floor/round drift must not change the total — the last column absorbs
+    # it rather than leaving a gap or overrunning rect.w.
+    widths_emu[-1] += rect.w - sum(widths_emu)
+    return widths_emu
+
+
+def _table_cell_rects(
+    rect: Rect,
+    num_cols: int,
+    num_rows: int,
+    col_widths: list[int] | None = None,
+) -> list[list[Rect]]:
+    """Split the table's overall rect into per-cell boxes — row 0 is the
+    header row. `col_widths` (EMU, one per column, summing to `rect.w`) come
+    from `_table_column_widths_emu` when a font is available; `None` falls
+    back to an even, floor-divided split (the original v1 approximation),
+    with any leftover EMUs from that floor division left as unassigned
+    padding, not distributed to any particular cell.
+    """
+    if col_widths is None:
+        col_w = rect.w // num_cols
+        col_widths = [col_w] * num_cols
+    col_x = [rect.x]
+    for w in col_widths[:-1]:
+        col_x.append(col_x[-1] + w)
+
     row_h = rect.h // num_rows
     return [
         [
-            Rect(x=rect.x + c * col_w, y=rect.y + r * row_h, w=col_w, h=row_h)
+            Rect(x=col_x[c], y=rect.y + r * row_h, w=col_widths[c], h=row_h)
             for c in range(num_cols)
         ]
         for r in range(num_rows)
@@ -189,6 +241,7 @@ def _sequence_step_rects(rect: Rect, num_steps: int) -> list[Rect]:
 def _extract_text_fields(
     primitive: PrimitiveBase | None,
     rect: Rect,
+    font_metrics: FontMetrics | None = None,
 ) -> list[tuple[str, str, float, Rect | None]]:
     """(field_name, text, font_size_pt, sub_rect) for every text-bearing field
     on a primitive. `sub_rect` is None when the field should be checked
@@ -196,6 +249,12 @@ def _extract_text_fields(
     Table/Sequence); Table/Sequence instead emit one entry per cell/step,
     each with its own sub-rect, so a single overlong cell/step is caught even
     when the combined text would have fit the overall box.
+
+    `font_metrics`, when given, sizes a Table's column sub-rects
+    proportionally to content (`_table_column_widths_emu`) — the same
+    widths `_render_table` actually draws — instead of an even split, so
+    overflow checking matches what's rendered. `None` (the default) falls
+    back to the even split, same as before this parameter existed.
 
     Every entry is still checked through the same shared check_overflow/
     wrap_lines routine (validator.py) — primitives never grow their own wrap
@@ -220,7 +279,10 @@ def _extract_text_fields(
     if isinstance(primitive, Table):
         num_cols = len(primitive.headers)
         num_rows = 1 + len(primitive.rows)  # row 0 = headers
-        cell_rects = _table_cell_rects(rect, num_cols, num_rows)
+        col_widths = _table_column_widths_emu(
+            primitive.headers, primitive.rows, rect, font_metrics
+        )
+        cell_rects = _table_cell_rects(rect, num_cols, num_rows, col_widths)
         fields: list[tuple[str, str, float, Rect | None]] = [
             (f"headers[{c}]", header, TABLE_FONT_SIZE_PT, cell_rects[0][c])
             for c, header in enumerate(primitive.headers)
@@ -279,7 +341,7 @@ def _check_slide(
 
     for item_id, rect in layout.rects.items():
         for field_name, text, font_size_pt, sub_rect in _extract_text_fields(
-            layout.items.get(item_id), rect
+            layout.items.get(item_id), rect, font_metrics
         ):
             check_rect = sub_rect if sub_rect is not None else rect
             box_width_pt = Emu(check_rect.w).pt
@@ -390,7 +452,7 @@ def render_deck(
     manifest: list[dict[str, Any]] = []
     for i, layout in enumerate(layouts):
         pptx_slide = prs.slides.add_slide(blank_layout)
-        _render_slide(pptx_slide, layout, i, manifest, resolved_template)
+        _render_slide(pptx_slide, layout, i, manifest, resolved_template, font_metrics)
         _render_footer(pptx_slide, resolved_template, i + 1, len(layouts))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -410,6 +472,7 @@ def _render_slide(
     slide_index: int,
     manifest: list[dict[str, Any]],
     template: Template,
+    font_metrics: FontMetrics | None = None,
 ) -> None:
     for item_id, rect in layout.rects.items():
         primitive = layout.items.get(item_id)
@@ -418,7 +481,14 @@ def _render_slide(
         if isinstance(primitive, Shape) and primitive.kind == "connector":
             continue  # drawn below from layout.connectors, not from its own rect
         _render_primitive(
-            pptx_slide, primitive, rect, slide_index, item_id, manifest, template
+            pptx_slide,
+            primitive,
+            rect,
+            slide_index,
+            item_id,
+            manifest,
+            template,
+            font_metrics,
         )
 
     for points in layout.connectors.values():
@@ -433,6 +503,7 @@ def _render_primitive(
     item_id: str,
     manifest: list[dict[str, Any]],
     template: Template,
+    font_metrics: FontMetrics | None = None,
 ) -> None:
     if isinstance(primitive, Header):
         _render_header(pptx_slide, primitive, rect, template)
@@ -447,7 +518,7 @@ def _render_primitive(
     elif isinstance(primitive, Stat):
         _render_stat(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Table):
-        _render_table(pptx_slide, primitive, rect, template)
+        _render_table(pptx_slide, primitive, rect, template, font_metrics)
     elif isinstance(primitive, Sequence):
         _render_sequence(pptx_slide, primitive, rect, template)
     elif isinstance(primitive, Chart):
@@ -766,7 +837,11 @@ def _render_stat(pptx_slide: Any, stat: Stat, rect: Rect, template: Template) ->
 
 
 def _render_table(
-    pptx_slide: Any, table: Table, rect: Rect, template: Template
+    pptx_slide: Any,
+    table: Table,
+    rect: Rect,
+    template: Template,
+    font_metrics: FontMetrics | None = None,
 ) -> None:
     n_rows = len(table.rows) + 1
     n_cols = len(table.headers)
@@ -781,6 +856,14 @@ def _render_table(
     row_h = rect.h // n_rows
     for row in tbl.rows:
         row.height = Emu(row_h)
+
+    # Column widths proportional to content when a font is available to
+    # measure with (_table_column_widths_emu); otherwise leave python-pptx's
+    # own even default, exactly as before this existed.
+    col_widths = _table_column_widths_emu(table.headers, table.rows, rect, font_metrics)
+    if col_widths is not None:
+        for c, width in enumerate(col_widths):
+            tbl.columns[c].width = Emu(width)
 
     for c, header_text in enumerate(table.headers):
         cell = tbl.cell(0, c)

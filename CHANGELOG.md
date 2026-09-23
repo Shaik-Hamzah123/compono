@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-09-24
+
+### Added
+- `table` columns now size proportionally to content (`_table_column_widths_emu`
+  in `render.py`) instead of an even split, when a font is available to
+  measure with — a long text column gets real space, short numeric columns
+  don't waste it. Falls back to the previous even split when no font is
+  available (same "never fakes" pattern as overflow validation), so
+  behavior is unchanged in that case.
+- `review()` gains a new `table_density` suggestion category: flags a
+  table whose resolved row height or column width is already cramped for
+  its box (purely geometric, no font metrics needed — runs even when
+  overflow checking itself is skipped), recommending fewer rows/columns,
+  a smaller font, or splitting across two tables/slides.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

@@ -31,6 +31,9 @@ validate()'s structured errors):
     mechanical, narrow check (no broader "AI writing tell" pass), since
     many readers flag em dashes as a sign of AI-generated text and the fix
     is unambiguous.
+  - table_density: a table's resolved row height or column width is
+    already cramped for its box — purely geometric (no font metrics
+    needed), so it still runs when overflow checking itself is skipped.
 """
 
 from __future__ import annotations
@@ -49,7 +52,7 @@ from compono.render import (
     resolve_deck_template,
 )
 from compono.resolver import LayoutResult, Rect, Template, resolve_slide
-from compono.schema import Deck, Grid, Image, Shape
+from compono.schema import Deck, Grid, Image, Shape, Table
 from compono.validator import check_overflow, load_font_metrics
 
 # WCAG 2.1 AA for normal-size text. Not configurable — a fixed, well-known bar.
@@ -65,6 +68,11 @@ _IMAGE_ASPECT_TOLERANCE = 0.35
 # close" even though it doesn't (yet) overflow.
 _TIGHT_FIT_FRACTION = 0.85
 _EM_DASH = "—"
+# A table row/column resolved smaller than these reads as cramped even
+# before any text technically overflows — the same "proactive nudge before
+# it becomes a hard error" spirit as the font_size check above.
+_TABLE_MIN_ROW_HEIGHT_PT = 18.0
+_TABLE_MIN_COL_WIDTH_PT = 50.0
 
 
 @dataclass
@@ -211,6 +219,43 @@ def _check_image_fit(
     return _suggestion(slide_index, item_id, "fit", "image_fit", detail, fix)
 
 
+def _check_table_density(
+    slide_index: int, item_id: str, primitive: Table, rect: Rect
+) -> dict[str, Any] | None:
+    """Purely geometric — no font metrics needed, so (like `_check_style`)
+    this runs even when overflow checking itself is skipped for lack of a
+    font. Flags a table whose resolved row height or column width is
+    already cramped, before any individual cell's text technically
+    overflows.
+    """
+    n_rows = 1 + len(primitive.rows)
+    n_cols = len(primitive.headers)
+    row_height_pt = _rect_height_pt(rect) / n_rows
+    col_width_pt = _rect_width_pt(rect) / n_cols
+
+    if (
+        row_height_pt >= _TABLE_MIN_ROW_HEIGHT_PT
+        and col_width_pt >= _TABLE_MIN_COL_WIDTH_PT
+    ):
+        return None
+
+    cramped = []
+    if row_height_pt < _TABLE_MIN_ROW_HEIGHT_PT:
+        cramped.append(f"row height ~{row_height_pt:.0f}pt across {n_rows} rows")
+    if col_width_pt < _TABLE_MIN_COL_WIDTH_PT:
+        cramped.append(f"column width ~{col_width_pt:.0f}pt across {n_cols} columns")
+
+    return _suggestion(
+        slide_index,
+        item_id,
+        None,
+        "table_density",
+        f"Table's resolved {' and '.join(cramped)} is cramped for its box.",
+        "Reduce the number of rows/columns, shrink the table's font size, "
+        "or split the data across two tables/slides.",
+    )
+
+
 def review(
     spec: dict[str, Any] | Deck, *, template: Template | None = None
 ) -> ReviewReport:
@@ -272,6 +317,11 @@ def review(
                 if s:
                     suggestions.append(s)
 
+            if isinstance(primitive, Table):
+                s = _check_table_density(slide_index, item_id, primitive, rect)
+                if s:
+                    suggestions.append(s)
+
             is_lone_top_level = (
                 item_id == lone_top_level_id and item_id not in layout.parents
             )
@@ -279,7 +329,7 @@ def review(
             if s:
                 suggestions.append(s)
 
-            text_fields = list(_extract_text_fields(primitive, rect))
+            text_fields = list(_extract_text_fields(primitive, rect, font_metrics))
 
             # Style checks are pure text-content scans — no font metrics
             # needed, so they run even when overflow checking is skipped.

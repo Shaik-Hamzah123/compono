@@ -531,6 +531,92 @@ def test_table_cell_rects_splits_evenly_into_num_cols_by_num_rows() -> None:
     assert cells[1][2] == Rect(x=600, y=100, w=300, h=100)
 
 
+def test_table_cell_rects_respects_explicit_col_widths() -> None:
+    rect = Rect(x=0, y=0, w=900, h=200)
+    cells = _table_cell_rects(rect, num_cols=3, num_rows=2, col_widths=[100, 300, 500])
+    assert cells[0][0] == Rect(x=0, y=0, w=100, h=100)
+    assert cells[0][1] == Rect(x=100, y=0, w=300, h=100)
+    assert cells[0][2] == Rect(x=400, y=0, w=500, h=100)
+    assert cells[1][2] == Rect(x=400, y=100, w=500, h=100)
+
+
+@pytest.fixture
+def monospace_metrics():
+    """A trivial monospace stand-in — every character advances the same
+    width — so column-width proportions are exercised without depending on
+    the bundled font's real glyph metrics.
+    """
+    from compono.validator import FontMetrics
+
+    return FontMetrics(units_per_em=1000, default_advance=600, advance_widths={})
+
+
+def test_table_column_widths_emu_sums_to_rect_width(monospace_metrics) -> None:
+    from compono.render import _table_column_widths_emu
+
+    rect = Rect(x=0, y=0, w=900_000, h=200_000)
+    widths = _table_column_widths_emu(
+        headers=["A", "A much longer header here", "B"],
+        rows=[["x", "y", "z"]],
+        rect=rect,
+        font_metrics=monospace_metrics,
+    )
+    assert widths is not None
+    assert sum(widths) == rect.w
+    assert len(widths) == 3
+
+
+def test_table_column_widths_emu_gives_more_space_to_the_longer_column(
+    monospace_metrics,
+) -> None:
+    from compono.render import _table_column_widths_emu
+
+    rect = Rect(x=0, y=0, w=900_000, h=200_000)
+    widths = _table_column_widths_emu(
+        headers=["Short", "This is a considerably longer column header"],
+        rows=[["s", "l"]],
+        rect=rect,
+        font_metrics=monospace_metrics,
+    )
+    assert widths is not None
+    assert widths[1] > widths[0]
+
+
+def test_table_column_widths_emu_returns_none_without_font_metrics() -> None:
+    from compono.render import _table_column_widths_emu
+
+    rect = Rect(x=0, y=0, w=900_000, h=200_000)
+    widths = _table_column_widths_emu(
+        headers=["A", "B"], rows=[["1", "2"]], rect=rect, font_metrics=None
+    )
+    assert widths is None
+
+
+def test_render_table_sets_proportional_column_widths_when_font_available(
+    tmp_path: Path,
+) -> None:
+    spec = {
+        "slides": [
+            {
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["ID", "A considerably longer description column"],
+                        "rows": [["1", "short"]],
+                    }
+                ]
+            }
+        ]
+    }
+    output = tmp_path / "deck.pptx"
+    render_deck(spec, output, template=Template.from_yaml())
+
+    prs = Presentation(str(output))
+    tbl = next(s.table for s in next(iter(prs.slides)).shapes if s.has_table)
+    widths = [col.width for col in tbl.columns]
+    assert widths[1] > widths[0]
+
+
 def test_sequence_step_rects_splits_evenly_left_to_right() -> None:
     rect = Rect(x=0, y=0, w=400, h=100)
     steps = _sequence_step_rects(rect, num_steps=4)

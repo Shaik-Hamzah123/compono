@@ -227,6 +227,46 @@ def test_review_never_flags_image_fit_for_a_placeholder() -> None:
     assert [s for s in report.suggestions if s["category"] == "image_fit"] == []
 
 
+def test_review_flags_table_density_when_rows_leave_a_cramped_row_height() -> None:
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Cramped table"},
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["A", "B"],
+                        "rows": [["x", "y"] for _ in range(29)],
+                    }
+                ],
+            }
+        ]
+    }
+    report = review(spec)
+    density = [s for s in report.suggestions if s["category"] == "table_density"]
+    assert len(density) == 1
+    assert "row height" in density[0]["detail"]
+
+
+def test_review_does_not_flag_table_density_for_a_small_table() -> None:
+    spec = {
+        "slides": [
+            {
+                "header": {"title": "Fine table"},
+                "body": [
+                    {
+                        "primitive": "table",
+                        "headers": ["Metric", "Value"],
+                        "rows": [["Revenue", "$1.2M"]],
+                    }
+                ],
+            }
+        ]
+    }
+    report = review(spec)
+    assert [s for s in report.suggestions if s["category"] == "table_density"] == []
+
+
 def test_review_never_raises_on_a_well_formed_deck() -> None:
     spec = {
         "slides": [
