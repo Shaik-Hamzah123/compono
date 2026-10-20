@@ -1002,6 +1002,43 @@ def _render_chart(
         chart_data,
     )
     _apply_chart_font(graphic_frame.chart, template)
+    _apply_chart_colors(graphic_frame.chart, chart.chart_type, template)
+
+
+def _chart_color_palette(template: Template) -> list[str] | None:
+    """`[primary_color, accent_color]`, either/both filtered out if unset.
+    `None` (both unset) means "don't touch chart colors at all" — gated,
+    additive, same as every other branding field.
+    """
+    colors = [c for c in (template.primary_color, template.accent_color) if c]
+    return colors or None
+
+
+def _apply_chart_colors(pptx_chart: Any, chart_type: str, template: Template) -> None:
+    """Cycles `template.primary_color`/`accent_color` across series (bar/
+    line) or data points (pie — one series, N slices, a different
+    python-pptx API than bar/line's per-series coloring). A chart with more
+    series/slices than colors set just repeats the cycle
+    (primary, accent, primary, accent, ...) rather than falling back to
+    PowerPoint's default palette partway through.
+    """
+    palette = _chart_color_palette(template)
+    if palette is None:
+        return
+
+    plot = pptx_chart.plots[0]
+    if chart_type == "pie":
+        for i, point in enumerate(plot.series[0].points):
+            point.format.fill.solid()
+            point.format.fill.fore_color.rgb = RGBColor.from_string(
+                palette[i % len(palette)].lstrip("#")
+            )
+    else:
+        for i, series in enumerate(plot.series):
+            series.format.fill.solid()
+            series.format.fill.fore_color.rgb = RGBColor.from_string(
+                palette[i % len(palette)].lstrip("#")
+            )
 
 
 def _apply_chart_font(pptx_chart: Any, template: Template) -> None:

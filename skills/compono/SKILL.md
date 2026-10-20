@@ -418,9 +418,11 @@ table/sequence is short.
 **Branding (colors/logo):** a template yaml can optionally set
 `colors: {primary, accent}` and `logo: <path>`. When set, `table`'s header
 row fills with `primary` (white text), `sequence` step shapes fill with
-`accent`, and the header region gets a real logo picture in its top-right
-corner. All three are additive — unset (every stock template today)
-renders exactly as before. `compono template extract SOURCE.pptx NAME` is
+`accent`, `chart` series (bar/line) or data points (pie) cycle through
+`[primary, accent, primary, accent, ...]`, and the header region gets a
+real logo picture in its top-right corner. All of this is additive — unset
+(every stock template today) renders exactly as before.
+`compono template extract SOURCE.pptx NAME` is
 a **developer/host-side** command (not something to invoke over MCP) that
 drafts a new branded `templates/<name>.yaml` from an existing corporate
 deck's page size, theme accent colors, theme font, and master logo — the

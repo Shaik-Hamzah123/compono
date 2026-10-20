@@ -522,6 +522,61 @@ def test_render_pie_chart_does_not_crash_applying_axis_font(tmp_path: Path) -> N
     assert output.exists()
 
 
+def _chart_spec(chart_type: str, n_series_or_points: int) -> dict:
+    categories = [f"C{i}" for i in range(n_series_or_points)]
+    if chart_type == "pie":
+        series = [{"name": "S", "values": list(range(1, n_series_or_points + 1))}]
+    else:
+        series = [
+            {"name": f"S{i}", "values": [1, 2]} for i in range(n_series_or_points)
+        ]
+        categories = ["Q1", "Q2"]
+    return {
+        "slides": [
+            {"body": [{"primitive": "chart", "chart_type": chart_type, "categories": categories, "series": series}]}
+        ]
+    }
+
+
+def test_render_chart_bar_series_cycle_primary_accent_colors(tmp_path: Path) -> None:
+    branded = dataclasses.replace(Template.from_yaml(), primary_color="#1F4E79", accent_color="#2E86AB")
+    output = tmp_path / "chart.pptx"
+    render_deck(_chart_spec("bar", 3), output, template=branded)
+
+    prs = Presentation(str(output))
+    chart = next(s.chart for s in next(iter(prs.slides)).shapes if s.has_chart)
+    fills = [s.format.fill.fore_color.rgb for s in chart.plots[0].series]
+    assert fills == [
+        RGBColor.from_string("1F4E79"),
+        RGBColor.from_string("2E86AB"),
+        RGBColor.from_string("1F4E79"),
+    ]
+
+
+def test_render_chart_pie_points_cycle_primary_accent_colors(tmp_path: Path) -> None:
+    branded = dataclasses.replace(Template.from_yaml(), primary_color="#1F4E79", accent_color="#2E86AB")
+    output = tmp_path / "chart.pptx"
+    render_deck(_chart_spec("pie", 3), output, template=branded)
+
+    prs = Presentation(str(output))
+    chart = next(s.chart for s in next(iter(prs.slides)).shapes if s.has_chart)
+    fills = [p.format.fill.fore_color.rgb for p in chart.plots[0].series[0].points]
+    assert fills == [
+        RGBColor.from_string("1F4E79"),
+        RGBColor.from_string("2E86AB"),
+        RGBColor.from_string("1F4E79"),
+    ]
+
+
+def test_render_chart_colors_unset_by_default(tmp_path: Path) -> None:
+    output = tmp_path / "chart.pptx"
+    render_deck(_chart_spec("bar", 1), output, template=Template.from_yaml())
+
+    prs = Presentation(str(output))
+    chart = next(s.chart for s in next(iter(prs.slides)).shapes if s.has_chart)
+    assert chart.plots[0].series[0].format.fill.type is None
+
+
 def test_table_cell_rects_splits_evenly_into_num_cols_by_num_rows() -> None:
     rect = Rect(x=0, y=0, w=900, h=300)
     cells = _table_cell_rects(rect, num_cols=3, num_rows=3)

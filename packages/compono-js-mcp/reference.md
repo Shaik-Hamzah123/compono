@@ -166,8 +166,9 @@ too, and table/sequence overflow is checked per-cell/per-step against each
 cell's own sub-rect.
 
 A template yaml can also set `colors: {primary, accent}`/`logo:` to brand
-`table`'s header row, `sequence`'s step shapes, and add a real header logo
-picture — all additive, unset means unchanged output.
+`table`'s header row, `sequence`'s step shapes, `chart` series/data points
+(cycling `[primary, accent, ...]`), and add a real header logo picture —
+all additive, unset means unchanged output.
 
 ## Known limitations
 

@@ -37,9 +37,11 @@ chart.
 ```
 
 Axis/legend/data-label text picks up the active template's `font_family`
-automatically. There is no chart-color theming from `template.primary_color`/
-`accent_color` yet (tracked in NEXT-STEPS.md) — chart series use
-PowerPoint's own default palette regardless of the active template.
+automatically. If the active template sets `colors.primary`/`accent` (see
+[templates-and-fonts.md](../templates-and-fonts.md)), series (bar/line) or
+data points (pie — one series, N slices, colored individually) cycle
+through `[primary, accent, primary, accent, ...]`; unset renders exactly
+as before (PowerPoint's own default palette).
 
 For a Gantt/timeline chart, `chart_type` has no dedicated type — see
 [`gantt`](gantt.md), built on `table` instead.

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-20
+
+### Added
+- Chart color theming: when `template.primary_color`/`accent_color` are
+  set, a `chart` primitive's series (bar/line, via
+  `series.format.fill`) or data points (pie — one series, N slices, via
+  `point.format.fill`, a different python-pptx API than bar/line's
+  per-series coloring) cycle through `[primary_color, accent_color,
+  primary_color, accent_color, ...]`. Additive/gated like every other
+  branding field — unset (every stock template today) leaves charts at
+  PowerPoint's own default palette, unchanged.
+
 ## [0.5.0] - 2026-09-24
 
 ### Added

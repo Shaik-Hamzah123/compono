@@ -103,8 +103,10 @@ Same verb-for-verb shape as the [Python CLI](cli.md).
 A template yaml can optionally set `colors: {primary, accent}` and
 `logo: <path>` (relative to the yaml's own directory). When set: `table`'s
 header row fills with `primary` (white text), `sequence` step shapes fill
-with `accent`, and the header region gets a real logo picture
-(`addImage`) in its top-right corner. All three are additive — omitted
+with `accent`, `chart` series (bar/line) or data points (pie) cycle
+through `[primary, accent, primary, accent, ...]` via pptxgenjs's
+`chartColors` option, and the header region gets a real logo picture
+(`addImage`) in its top-right corner. All of this is additive — omitted
 (every stock template today) renders exactly as before.
 
 `compono-js template extract SOURCE.pptx NAME [-o output-dir]` is a
@@ -163,8 +165,6 @@ primitives).
   resolved.
 - `chart` in docx is a rasterized image, not an editable native Word
   chart (same caveat as the Python side).
-- No chart color theming: `colors.primary`/`accent` apply to `table`/
-  `sequence` only, not chart series (same limitation as the Python side).
 - `template extract`'s theme reading assumes `ppt/theme/theme1.xml` and
   `ppt/slideMasters/slideMaster1.xml` (the common case) rather than
   resolving the correct part via its actual relationship — an unusual

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Tracked independently from the root `CHANGELOG.md`, which covers `compono` core.
 
+## [0.4.1] - 2026-10-20
+
+### Added
+- Chart color theming, ported from Python compono 0.5.1: when
+  `template.primaryColor`/`accentColor` are set, a `chart` primitive's
+  series (bar/line) or data points (pie) cycle through `[primaryColor,
+  accentColor, primaryColor, accentColor, ...]` via pptxgenjs's
+  `chartColors` option. Additive/gated — unset (every stock template
+  today) leaves charts at pptxgenjs's own default palette, unchanged.
+
 ## [0.4.0] - 2026-09-24
 
 ### Added

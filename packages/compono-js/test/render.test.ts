@@ -405,6 +405,72 @@ describe("renderChart", () => {
     const buf = await readFile(output);
     expect(buf.length).toBeGreaterThan(0);
   });
+
+  function chartSpec(chartType: "bar" | "pie", count: number) {
+    if (chartType === "pie") {
+      return {
+        slides: [
+          {
+            body: [
+              {
+                primitive: "chart",
+                chart_type: "pie",
+                categories: Array.from({ length: count }, (_, i) => `C${i}`),
+                series: [{ name: "S", values: Array.from({ length: count }, (_, i) => i + 1) }],
+              },
+            ],
+          },
+        ],
+      };
+    }
+    return {
+      slides: [
+        {
+          body: [
+            {
+              primitive: "chart",
+              chart_type: "bar",
+              categories: ["Q1", "Q2"],
+              series: Array.from({ length: count }, (_, i) => ({ name: `S${i}`, values: [1, 2] })),
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it("cycles primary/accent colors across bar chart series", async () => {
+    const output = tmpPath("chart-bar.pptx");
+    const template = { ...loadTemplateByName("default"), primaryColor: "#1F4E79", accentColor: "#2E86AB" };
+    await renderDeck(chartSpec("bar", 3), output, template);
+
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const chartFile = Object.keys(zip.files).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))!;
+    const xml = await zip.files[chartFile].async("string");
+    expect(xml).toContain("1F4E79");
+    expect(xml).toContain("2E86AB");
+  });
+
+  it("cycles primary/accent colors across pie chart slices", async () => {
+    const output = tmpPath("chart-pie.pptx");
+    const template = { ...loadTemplateByName("default"), primaryColor: "#1F4E79", accentColor: "#2E86AB" };
+    await renderDeck(chartSpec("pie", 3), output, template);
+
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const chartFile = Object.keys(zip.files).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))!;
+    const xml = await zip.files[chartFile].async("string");
+    expect(xml).toContain("1F4E79");
+    expect(xml).toContain("2E86AB");
+  });
+
+  it("does not set chart colors when the template has none set", async () => {
+    const output = tmpPath("chart-unbranded.pptx");
+    await renderDeck(chartSpec("bar", 1), output);
+    const zip = await JSZip.loadAsync(await readFile(output));
+    const chartFile = Object.keys(zip.files).find((f) => /^ppt\/charts\/chart\d+\.xml$/.test(f))!;
+    const xml = await zip.files[chartFile].async("string");
+    expect(xml).not.toContain("1F4E79");
+  });
 });
 
 describe("tableCellRects", () => {

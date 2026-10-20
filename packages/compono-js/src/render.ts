@@ -787,6 +787,21 @@ const CHART_TYPE_TO_PPTX: Record<string, string> = {
   pie: "pie",
 };
 
+/** `[primaryColor, accentColor]`, cycled out to `count` entries
+ * (`[primary, accent, primary, accent, ...]`) — `undefined` (neither color
+ * set) means "don't touch chart colors at all", same additive/gated
+ * pattern as every other branding field. `count` is series count for
+ * bar/line, or category (slice) count for pie — pptxgenjs's `chartColors`
+ * colors series for bar/line and points for pie from the same flat array,
+ * so no chart-type branching is needed building it, unlike python-pptx's
+ * two different per-series/per-point fill APIs.
+ */
+function chartColorPalette(count: number, template: Template): string[] | undefined {
+  const colors = [template.primaryColor, template.accentColor].filter((c): c is string => !!c);
+  if (colors.length === 0) return undefined;
+  return Array.from({ length: count }, (_, i) => colors[i % colors.length]);
+}
+
 function renderChart(slide: PptxSlideLike, chart: Chart, rect: Rect, template: Template): void {
   const box = rectIn(rect);
   const data = chart.series.map((series) => ({
@@ -794,6 +809,8 @@ function renderChart(slide: PptxSlideLike, chart: Chart, rect: Rect, template: T
     labels: chart.categories,
     values: series.values,
   }));
+  const colorCount = chart.chart_type === "pie" ? chart.categories.length : chart.series.length;
+  const chartColors = chartColorPalette(colorCount, template);
   // Typeface only (template.fontFamily) — no existing FONT_SIZE_PT constant
   // covers charts, so size stays at pptxgenjs's own defaults. Unlike
   // python-pptx, pptxgenjs's flat chart options don't throw for a chart
@@ -805,6 +822,7 @@ function renderChart(slide: PptxSlideLike, chart: Chart, rect: Rect, template: T
     valAxisLabelFontFace: template.fontFamily,
     legendFontFace: template.fontFamily,
     dataLabelFontFace: template.fontFamily,
+    ...(chartColors ? { chartColors } : {}),
   });
 }
 

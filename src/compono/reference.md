@@ -405,9 +405,11 @@ block of text.
 
 A template yaml can optionally set `colors: {primary, accent}` and
 `logo: <path>`. When set: `table`'s header row fills with `primary` (white
-text), `sequence` step shapes fill with `accent`, and the header region
-gets a real logo picture top-right. All additive — unset (every stock
-template today) renders exactly as before. `compono template extract
+text), `sequence` step shapes fill with `accent`, `chart` series (bar/line)
+or data points (pie) cycle through `[primary, accent, primary, accent,
+...]`, and the header region gets a real logo picture top-right. All
+additive — unset (every stock template today) renders exactly as before.
+`compono template extract
 SOURCE.pptx NAME` is a developer/host-side CLI command (not agent-facing)
 that drafts a new branded `templates/<name>.yaml` from an existing
 corporate deck's page size, theme accent colors, theme font, and master

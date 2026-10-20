@@ -68,8 +68,8 @@ geometry and `font_family`:
 
 ```yaml
 colors:
-  primary: "#1F4E79"   # table header row fill
-  accent: "#2E86AB"    # sequence step shape fill
+  primary: "#1F4E79"   # table header row fill, chart series/slices
+  accent: "#2E86AB"    # sequence step shape fill, chart series/slices
 logo: assets/acme-logo.png   # header-region logo picture, relative to this file
 ```
 
@@ -80,6 +80,10 @@ today) renders exactly as before these fields existed. When set:
   and switches its text to white.
 - `colors.accent` fills each `sequence` primitive's step shape with that
   color.
+- `colors.primary`/`colors.accent` together color a `chart` primitive's
+  series (bar/line) or data points (pie), cycling `[primary, accent,
+  primary, accent, ...]` across however many there are. A single color set
+  colors everything with just that one.
 - `logo` places a real picture (`add_picture`, never a rasterized
   placeholder) in the top-right corner of the header region, sized
   proportionally to header height.

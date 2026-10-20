@@ -191,11 +191,16 @@ The three new optional `Template` fields (`primary_color`, `accent_color`,
 `logo_path`) are consumed additively in `render.py`: a branded table
 header row fill (`_render_table`, gated on `primary_color`), branded
 sequence step shape fill (`_render_sequence`, gated on `accent_color`),
-and a header-region logo picture (`_render_header`, gated on `logo_path`)
-— each a real OOXML object (`cell.fill`/`shape.fill`/`add_picture`), never
-a rasterized stand-in. Chart color theming and slide master/layout
-placeholder-geometry inheritance are explicitly out of scope (see
-NEXT-STEPS.md if working on this area further).
+branded chart series/data-point colors (`_render_chart`'s
+`_apply_chart_colors`, gated on either color being set — cycles
+`[primary_color, accent_color]` across series for bar/line or points for
+pie, via `series.format.fill`/`point.format.fill` respectively, two
+different python-pptx APIs), and a header-region logo picture
+(`_render_header`, gated on `logo_path`) — each a real OOXML object
+(`cell.fill`/`shape.fill`/chart `format.fill`/`add_picture`), never a
+rasterized stand-in. Slide master/layout placeholder-geometry inheritance
+is explicitly out of scope (see NEXT-STEPS.md if working on this area
+further).
 
 ### DOCX (a separate, parallel pipeline)
 
