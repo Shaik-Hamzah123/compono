@@ -1,7 +1,7 @@
 """Unit tests for src/compono/review.py — design-quality suggestions.
 
 review() is never blocking (no valid/invalid, only suggestions, possibly
-zero) and pure like resolver.py/validator.py — no pptx write.
+zero) and pure like resolver/validator.py — no pptx write.
 """
 
 from compono.review import review

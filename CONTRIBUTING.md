@@ -33,7 +33,7 @@ Makefile for the exact invocations.)
 
 - Format/lint with `ruff`.
 - Type-check with `mypy` (or the project's configured type checker).
-- Keep functions small and pure where possible, especially in `resolver.py` and `validator.py` — they're unit-tested independently of rendering.
+- Keep functions small and pure where possible, especially in `resolver/` and `validator.py` — they're unit-tested independently of rendering.
 
 ## Commit messages
 

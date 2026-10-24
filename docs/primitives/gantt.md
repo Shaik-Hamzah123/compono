@@ -9,8 +9,8 @@ dates). A `gantt` is instead synthesized internally as a
 leading task-label column), each task becomes a row, and its active span
 of cells is colored via `table`'s `cell_fills` — the same "reuse, don't
 reimplement" trick [`diagram`](diagram.md) uses for its nodes, taken one
-step further: by the time `render.py` sees a `gantt`, it's already an
-ordinary `table` it already knows how to render.
+step further: by the time compono's render step sees a `gantt`, it's
+already an ordinary `table` it already knows how to render.
 
 ## Fields
 

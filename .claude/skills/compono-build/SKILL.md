@@ -43,7 +43,9 @@ tests + CI, first release.
 2. **The resolver and validator are pure functions.** No file I/O beyond
    `Template.from_yaml`/`load_font_metrics` themselves, no pptx writes, no
    network calls. This is what makes them independently unit-testable and
-   millisecond-fast — don't let rendering concerns leak in.
+   millisecond-fast — don't let rendering concerns leak in. `resolver/` is
+   a package (`template.py`, `types.py`, `layout.py`, `diagram.py`,
+   `gantt.py`, `connectors.py`) — none of its submodules may import `pptx`.
 3. **One shared "fit text into this rectangle" routine** for `text`,
    `stat`, and `shape.text` — don't duplicate shrink-to-fit logic per
    primitive (COMPONO_PLAN.md section 5, "Text-in-shape").
@@ -68,28 +70,43 @@ pattern, then touch, in order:
 1. **`schema.py`** — a new `PrimitiveBase` subclass, added to the
    `PrimitiveSpec` discriminated union, `Grid.model_rebuild()` re-run if the
    union changed shape.
-2. **`resolver.py`** — teach `_place_item` (and `_layout_grid` if it needs
-   2D placement) how to size/position it. Reuse `Rect`/`LayoutResult` as-is;
-   don't invent a parallel positioning structure.
+2. **`resolver/layout.py`** — teach `_place_item` (and `_layout_grid` if it
+   needs 2D placement) how to size/position it. Reuse `Rect`/`LayoutResult`
+   (`resolver/types.py`) as-is; don't invent a parallel positioning
+   structure. A primitive that synthesizes another one internally (like
+   `diagram`/`gantt`) gets its own `resolver/<primitive>.py` plus a
+   dispatch branch in `_place_item` — see `resolver/diagram.py`/
+   `resolver/gantt.py` for the pattern, including the deferred-import
+   trick they use to call `layout.py`'s `_place_item` without a circular
+   import.
 3. **`validator.py`** — if it carries text, feed it through the existing
    `check_overflow`/`measure_text_width_pt` functions, not a new bespoke
    check.
-4. **`render.py`** — a `_render_<primitive>` function following the
-   existing ones' shape: take `(pptx_slide, primitive, rect)`, produce a
-   real OOXML shape via `python-pptx`.
-5. **`__init__.py`** — export the new class if it's part of the public API
-   surface.
+4. **`render/primitives.py`** — a `_render_<primitive>` function following
+   the existing ones' shape: take `(pptx_slide, primitive, rect, template)`,
+   produce a real OOXML shape via `python-pptx`. If it has text, also add a
+   case to `render/_overflow.py`'s `_extract_text_fields`.
+5. **`src/compono/__init__.py`** — export the new class if it's part of the
+   public API surface.
 6. Tests: extend `tests/test_schema.py`, `tests/test_resolver.py`, and
    `tests/test_render.py` in the same style as the existing primitives —
-   don't create a separate test file per primitive.
+   don't create a separate test file per primitive. These stay single
+   consolidated files even though the source they test is now split into
+   packages — import from `compono.resolver`/`compono.render` as before,
+   since both packages' `__init__.py` re-export everything that was
+   previously importable from the flat `resolver.py`/`render.py`.
 
 ## Where to look for canonical examples
 
-- Pure-function style: `resolver.py`, `validator.py`.
+- Pure-function style: `resolver/` (the whole package), `validator.py`.
 - Discriminated union / recursive schema: `schema.py`'s `Grid`.
 - Structured error shape: `validator.build_overflow_error`,
-  `render._pydantic_error_to_dict`.
-- End-to-end wiring: `render.py`'s `validate`/`render_deck`, exercised in
-  `tests/test_render.py` against an inline minimal spec (kept in the test
-  file, not `examples/`, since every example deck is now real reference
-  material rather than a bare smoke-test fixture).
+  `render._shared._pydantic_error_to_dict`.
+- End-to-end wiring: `render/deck.py`'s `validate`/`render_deck`, exercised
+  in `tests/test_render.py` against an inline minimal spec (kept in the
+  test file, not `examples/`, since every example deck is now real
+  reference material rather than a bare smoke-test fixture).
+- A primitive that synthesizes another one internally: `resolver/diagram.py`
+  (nodes become real `shape`s) and `resolver/gantt.py` (fully collapses
+  into a `table` — the simpler case, since it replaces itself entirely
+  rather than adding children).

@@ -5,7 +5,7 @@ overflow). review() answers "does this look good" — actionable design
 suggestions an agent can apply before or after rendering. Never blocking:
 review() has no notion of pass/fail, only suggestions (possibly zero).
 
-Pure function, like resolver.py/validator.py — no pptx write, no network.
+Pure function, like resolver/validator.py — no pptx write, no network.
 Reuses resolve_slide's real rects rather than re-deriving layout, and the
 validator's OverflowReport rather than a bespoke wrap routine.
 

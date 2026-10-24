@@ -1,16 +1,16 @@
 """Orchestrates validate -> write docx.
 
 Exposes the two public verbs for compono's second output format:
-render_docx(spec, output_path) and validate_docx(spec). Mirrors render.py's
-pptx pipeline in shape (parse -> per-primitive render -> report), but with
-no resolver step — Word flows content top-to-bottom on its own, so there's
-no EMU layout math to do for this format.
+render_docx(spec, output_path) and validate_docx(spec). Mirrors the
+render/ package's pptx pipeline in shape (parse -> per-primitive render ->
+report), but with no resolver step — Word flows content top-to-bottom on
+its own, so there's no EMU layout math to do for this format.
 
 Full v1 docx catalog: heading, paragraph, bullet_list, numbered_list,
 table, image, chart, page_break (docx_schema.py).
 
 This is the only module allowed to import `docx`/`matplotlib`, mirroring
-render.py's "only module allowed to import pptx" rule.
+render/'s "only package allowed to import pptx" rule.
 """
 
 from __future__ import annotations

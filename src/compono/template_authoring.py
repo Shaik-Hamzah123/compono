@@ -4,9 +4,9 @@ existing corporate .pptx (`compono template extract`, cli.py).
 Deliberately **not** part of the five-module pipeline (schema/resolver/
 validator/render/cli) — this module owns the one "read an existing .pptx
 for its theme/page-size/logo, then write a template yaml (+ optional logo
-asset) to disk" concern, so that neither `resolver.py` (which must stay a
-pure, minimal-I/O module per CLAUDE.md — see `Template.from_yaml`'s "one
-read" contract) nor `render.py` (reserved for the pptx *write* path) has
+asset) to disk" concern, so that neither `resolver/` (which must stay a
+pure, minimal-I/O package per CLAUDE.md — see `Template.from_yaml`'s "one
+read" contract) nor `render/` (reserved for the pptx *write* path) has
 to import `pptx` for a second, unrelated reason.
 
 Extraction is always best-effort: a missing/malformed theme part, or no

@@ -101,13 +101,13 @@ new work almost always touches several of them in the same pattern:
    `text`, `image`, `stat`, `grid`, `table` (including `cell_fills`/`merges`
    for per-cell body styling and rectangular-range merging), `sequence`,
    `chart`, `shape`, `diagram` (a node-graph flowchart whose nodes/edges
-   are synthesized as `shape` primitives at layout time by `resolver.py`'s
-   `_layout_diagram` — this is why adding it needed no new `render.py`
-   code at all), `gantt` (a Gantt/timeline chart that fully collapses into
-   a synthesized `table` at layout time via `resolver.py`'s
-   `_layout_gantt` — even less new `render.py` code than `diagram`: zero,
-   not even a dispatch branch, since by render time it's already an
-   ordinary `table`).
+   are synthesized as `shape` primitives at layout time by
+   `resolver/diagram.py`'s `_layout_diagram` — this is why adding it
+   needed no new `render/` code at all), `gantt` (a Gantt/timeline chart
+   that fully collapses into a synthesized `table` at layout time via
+   `resolver/gantt.py`'s `_layout_gantt` — even less new `render/` code
+   than `diagram`: zero, not even a dispatch branch, since by render time
+   it's already an ordinary `table`).
    `PrimitiveSpec` is a discriminated union (`Field(discriminator="primitive")`)
    over all of them; `Grid.items` is recursively typed as `list[PrimitiveSpec]`
    (grids can contain any primitive, including other grids), which is why
@@ -117,22 +117,39 @@ new work almost always touches several of them in the same pattern:
    the calling agent ("Keep under ~60 characters — longer titles will be
    shrunk by the resolver"), not a bare type label — this is deliberate,
    since the schema doubles as in-context documentation.
-2. **`resolver.py`** — the layout engine. `Template.from_yaml` loads
+2. **`resolver/`** (a package, not a flat file — split 2026-10-24 once it
+   grew past 600 lines; see item 4 below for the same split on `render/`)
+   — the layout engine. `resolver/template.py`'s `Template.from_yaml` loads
    `templates/default.yaml` (page size, margins, header/footer heights,
    gutter, and optional `colors: {primary, accent}`/`logo:` branding
    fields — all `None` unless a template yaml sets them, so every stock
    template renders byte-identically to before these fields existed) and
-   converts geometry to EMU. `resolve_slide` does a
-   directional box model: header region top, footer pinned bottom, body
-   fills the remainder; body primitives currently share height equally (a
-   flex-equal fallback — real content-based sizing via font metrics is a
-   known future improvement, see CHANGELOG "Known limitations"). `grid` is
-   the one primitive doing true 2D row/column math. Shape connectors
-   resolve in a second pass, once every other rect is final, by looking up
-   the referenced `id`s. **Pure function — no file I/O beyond
-   `Template.from_yaml` itself, no pptx writes.**
+   converts geometry to EMU. `resolver/types.py` holds `Rect`/
+   `ConnectorPoints`/`LayoutResult`. `resolver/layout.py`'s `resolve_slide`
+   does a directional box model: header region top, footer pinned bottom,
+   body fills the remainder; body primitives currently share height
+   equally (a flex-equal fallback — real content-based sizing via font
+   metrics is a known future improvement, see CHANGELOG "Known
+   limitations"). `grid` is the one primitive doing true 2D row/column
+   math, also in `layout.py`. `diagram`'s layout (nodes synthesized as
+   `shape`s) lives in `resolver/diagram.py`; `gantt`'s (fully collapses
+   into a synthesized `table`) in `resolver/gantt.py`. Shape connectors
+   (and `diagram`'s edges) resolve in a second pass, once every other rect
+   is final, by looking up the referenced `id`s — the obstacle-avoiding
+   router both share lives in `resolver/connectors.py`, a leaf module
+   `diagram.py` imports from with no cycle. `diagram.py`/`gantt.py` each
+   need `layout.py`'s `_place_item` to place their synthesized primitive,
+   which would be a circular import at module-load time — both use a
+   **deferred import** (`from .layout import _place_item` inside the
+   function body, not at module top) to break the cycle; this is the one
+   place in the package where that pattern is used, and it's commented
+   at each occurrence. **Pure package — no file I/O beyond
+   `Template.from_yaml` itself, no pptx writes.** `resolver/__init__.py`
+   re-exports everything the rest of the codebase imports from
+   `compono.resolver` today, so `from compono.resolver import Template`
+   etc. is unaffected by the package split.
    - `LayoutResult.items` maps each resolved id back to its originating
-     primitive object — the single source of truth `render.py` uses instead
+     primitive object — the single source of truth `render/` uses instead
      of re-deriving the id scheme.
    - `LayoutResult.parents` maps each child id to its parent grid's id,
      captured during grid recursion. Use this (not an id-string-prefix
@@ -146,19 +163,32 @@ new work almost always touches several of them in the same pattern:
    `build_overflow_error` produces the canonical structured error shape:
    `{slide, primitive, field, error, detail, fix}`. `SAFE_FONTS` (bundled
    font allowlist) is currently empty — no font ships with the package yet,
-   so `render.py` falls back to a system font if one is found and skips
+   so `render/` falls back to a system font if one is found and skips
    (never fakes) overflow validation otherwise, with a warning.
-4. **`render.py`** — orchestrates validate → resolve → write pptx; the only
-   module allowed to import `pptx`. `validate()` and `render_deck()` are the
-   two public verbs. `_extract_text_fields` is the single place that maps
-   each primitive type to its text-bearing field(s) and font size for
-   overflow checking — every primitive routes through the same
-   `check_overflow` call, never a bespoke wrap implementation.
-   `_render_<primitive>` functions each take `(pptx_slide, primitive, rect)`
-   and must produce a real OOXML shape (`add_textbox`, `add_shape`,
-   `add_table`, `add_chart`, `add_connector`, `add_picture` for real images)
-   — never rasterize content. Image placeholders render a dashed-border box
-   + caption and append a manifest entry instead.
+4. **`render/`** (a package, not a flat file — split 2026-10-24 once it
+   grew past 1000 lines) — orchestrates validate → resolve → write pptx;
+   the only package allowed to import `pptx`. `render/deck.py`'s
+   `validate()` and `render_deck()` are the two public verbs, plus the
+   per-slide/per-primitive dispatch (`_render_slide`/`_render_primitive`)
+   that calls into `primitives.py`. `render/_overflow.py`'s
+   `_extract_text_fields` is the single place that maps each primitive
+   type to its text-bearing field(s) and font size for overflow checking
+   — every primitive routes through the same `check_overflow` call, never
+   a bespoke wrap implementation. `render/primitives.py` holds every
+   `_render_<primitive>` function — **this is the file "Adding a new
+   primitive" below refers to** — each taking
+   `(pptx_slide, primitive, rect, template, ...)` and producing a real
+   OOXML shape (`add_textbox`, `add_shape`, `add_table`, `add_chart`,
+   `add_connector`, `add_picture` for real images) — never rasterize
+   content. Image placeholders render a dashed-border box + caption and
+   append a manifest entry instead. `render/_shared.py` holds the
+   cross-cutting constants/helpers (font sizes, `_set_font`, font
+   resolution) every primitive renderer and the public verbs lean on;
+   `render/types.py` holds `DeckValidationError`/`ValidationReport`/
+   `RenderReport`, kept separate from `deck.py` so `_shared.py` can raise
+   `DeckValidationError` without an import cycle. `render/__init__.py`
+   re-exports everything the rest of the codebase (and `review.py`,
+   `tests/`) imports from `compono.render` today.
 5. **`cli.py`** — argparse wrapper exposing `validate`/`render_deck` as
    `compono validate`/`compono render`, for frameworks that can only shell
    out (also wires up `docx validate`/`docx render`, `inspire scan`,
@@ -173,10 +203,10 @@ zip+lxml parsing of the theme XML part since python-pptx's own
 `pptx/oxml/theme.py` has no read accessors for it), theme body font, and
 a logo picture on the slide master, if any. Always best-effort — a
 missing/malformed theme or no master logo degrades to `None` fields, never
-raises. Deliberately **not** placed in `resolver.py` (which must stay
-import-`pptx`-free per the "only `render.py` imports `pptx`" rule below —
+raises. Deliberately **not** placed in `resolver/` (which must stay
+import-`pptx`-free per the "only `render/` imports `pptx`" rule below —
 this module imports it for read-only extraction, a distinct concern from
-either `resolver.py`'s pure layout math or `render.py`'s pptx *write*
+either `resolver/`'s pure layout math or `render/`'s pptx *write*
 path). Margins/header/footer/gutter are never derived from the source
 deck — they're copied from compono's own `default.yaml`, since arbitrary
 master placeholder geometry has no mapping onto compono's resolver box
@@ -188,7 +218,7 @@ point a render at an arbitrary uploaded `.pptx` — the written yaml is a
 (see `docs/templates-and-fonts.md`'s governance section).
 
 The three new optional `Template` fields (`primary_color`, `accent_color`,
-`logo_path`) are consumed additively in `render.py`: a branded table
+`logo_path`) are consumed additively in `render/primitives.py`: a branded table
 header row fill (`_render_table`, gated on `primary_color`), branded
 sequence step shape fill (`_render_sequence`, gated on `accent_color`),
 branded chart series/data-point colors (`_render_chart`'s
@@ -209,8 +239,8 @@ documents, not slides — and are deliberately **not** part of the five
 modules above: no resolver (Word flows content top-to-bottom on its own),
 a smaller primitive set (`heading`, `paragraph`, `bullet_list`,
 `numbered_list`, `table`, `image`, `chart`, `page_break`), and `docx.py` is
-the only module allowed to import `docx`/`matplotlib` (mirrors
-`render.py`'s "only module allowed to import pptx" rule). `render_docx()`/
+the only module allowed to import `docx`/`matplotlib` (mirrors `render/`'s
+"only package allowed to import pptx" rule). `render_docx()`/
 `validate_docx()` are its two public verbs, same shape as `render_deck()`/
 `validate()`. One deliberate, documented exception to the "always a real
 object" invariant below: `chart` is rasterized via matplotlib (no native
@@ -251,11 +281,13 @@ tests.
 ### Adding a new primitive
 
 Touch, in order: `schema.py` (new class + add to `PrimitiveSpec` union +
-re-run `Grid.model_rebuild()`) → `resolver.py`'s `_place_item` (usually
-no change needed — it's already generic for leaf primitives; only grids
-need special 2D handling) → `validator.py` (reuse `check_overflow`, don't
-add a new wrap routine) → `render.py`'s `_render_<primitive>` +
-`_extract_text_fields` → `__init__.py` exports. Extend
+re-run `Grid.model_rebuild()`) → `resolver/layout.py`'s `_place_item`
+(usually no change needed — it's already generic for leaf primitives;
+only grids/diagram/gantt-style primitives that synthesize other
+primitives need their own `resolver/<primitive>.py` + a dispatch branch)
+→ `validator.py` (reuse `check_overflow`, don't add a new wrap routine)
+→ `render/primitives.py`'s `_render_<primitive>` + `render/_overflow.py`'s
+`_extract_text_fields` → `src/compono/__init__.py` exports. Extend
 `tests/test_schema.py`, `tests/test_resolver.py`, `tests/test_render.py`,
 `tests/test_render_shape_invariant.py` in the same style as existing
 primitives — don't create a new test file per primitive.
@@ -281,8 +313,9 @@ primitives — don't create a new test file per primitive.
   job, not a schema concept.
 - `chart.chart_type` is scoped to `bar`/`line`/`pie` only (COMPONO_PLAN.md
   section 5) — deliberately not an exhaustive chart-type catalog. Extending
-  it later is just adding entries to `_CHART_TYPE_TO_XL` in `render.py`, not
-  a rearchitecture, but don't add types speculatively.
+  it later is just adding entries to `_CHART_TYPE_TO_XL` in
+  `render/_shared.py`, not a rearchitecture, but don't add types
+  speculatively.
 
 ## Repo-specific tooling
 

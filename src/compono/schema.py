@@ -445,7 +445,7 @@ class Gantt(PrimitiveBase):
     """A Gantt/timeline chart: rendered as a `table` under the hood — one
     row per task, one column per time unit, with each task's active span
     of cells colored in (`table`'s `cell_fills`, synthesized at layout
-    time by `resolver.py`'s `_layout_gantt`). Not a native chart type
+    time by `resolver/gantt.py`'s `_layout_gantt`). Not a native chart type
     (`chart.chart_type` is deliberately scoped to bar/line/pie only, and
     compono's resolver never does value-proportional placement) — this is
     a documented, deliberate workaround, not a first-class timeline layout.

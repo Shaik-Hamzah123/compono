@@ -1,4 +1,4 @@
-"""Unit tests for src/compono/resolver.py — pure functions, no rendering."""
+"""Unit tests for src/compono/resolver/ — pure functions, no rendering."""
 
 import pytest
 
@@ -360,8 +360,8 @@ def test_diagram_edge_routes_around_an_intervening_node(template: Template) -> N
 
 def test_diagram_edge_unknown_node_ref_raises(template: Template) -> None:
     # Bypasses schema validation (which already forbids this at the schema
-    # layer) via model_construct, to exercise resolver.py's own defensive
-    # check directly.
+    # layer) via model_construct, to exercise resolver/diagram.py's own
+    # defensive check directly.
     diagram = Diagram.model_construct(
         primitive="diagram",
         id=None,

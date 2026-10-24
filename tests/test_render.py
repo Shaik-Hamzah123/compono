@@ -1,4 +1,4 @@
-"""Unit/integration tests for src/compono/render.py and cli.py.
+"""Unit/integration tests for src/compono/render/ and cli.py.
 
 Covers the two public verbs (render_deck/validate) end-to-end for the v1
 primitive slice (header, text, grid, shape), plus a CLI smoke test against

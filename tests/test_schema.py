@@ -140,7 +140,7 @@ def test_table_rejects_mismatched_row_length() -> None:
 
 def test_table_rejects_empty_headers() -> None:
     # An empty headers list would make the per-cell overflow rect math
-    # (render.py's _table_cell_rects) divide by zero.
+    # (render/_overflow.py's _table_cell_rects) divide by zero.
     with pytest.raises(ValidationError):
         Table(headers=[], rows=[])
 

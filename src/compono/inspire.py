@@ -9,7 +9,7 @@ quirk, and packages the result as a skill folder
 before generating a *new* deck with `compono`, so the new deck adopts
 similar practices loosely rather than copying any source deck literally.
 
-Hard invariant, same weight as render.py's "always a real shape, never a
+Hard invariant, same weight as render/'s "always a real shape, never a
 flattened image": `scan_deck`/`aggregate` must never serialize a source
 deck's literal text strings or image bytes into the profile. Only
 measurable structure (colors, font family/size, positions, sizes) is

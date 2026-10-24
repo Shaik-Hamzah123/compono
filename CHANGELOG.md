@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Internal restructure, no behavior change: `render.py` (1067 lines) and
+  `resolver.py` (615 lines) split into packages (`render/`, `resolver/`),
+  one module per concern — `render/_shared.py`, `_overflow.py`,
+  `primitives.py`, `deck.py`, `types.py`; `resolver/template.py`,
+  `types.py`, `layout.py`, `diagram.py`, `gantt.py`, `connectors.py`.
+  Every import path that worked before (`from compono.render import
+  validate`, `from compono.resolver import Template`, etc.) still works
+  unchanged via each package's `__init__.py` re-exporting the same names —
+  confirmed via the full existing test suite passing with zero test
+  changes. Not a release-worthy change on its own, so no version bump.
+
 ## [0.5.1] - 2026-10-20
 
 ### Added

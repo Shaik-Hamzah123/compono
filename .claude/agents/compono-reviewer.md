@@ -15,15 +15,18 @@ Check specifically for these project-specific invariants, in order of
 severity:
 
 1. **Real-shape invariant (non-negotiable, section 3).** Any new render code
-   in `render.py` must produce genuine OOXML shapes (`add_textbox`,
+   in `render/` (`render/primitives.py`'s `_render_<primitive>` functions,
+   typically) must produce genuine OOXML shapes (`add_textbox`,
    `add_shape`, `add_connector`, `add_picture` for real images only) — never
    rasterize content to an image or embed video as a slide's content. Flag
    any code path that would do this.
 2. **Resolver/validator purity (section 7, "pure function... zero rendering
-   involved").** `resolver.py` and `validator.py` must not perform pptx
-   writes, network calls, or non-deterministic behavior. `Template.from_yaml`
-   and `load_font_metrics` are the only sanctioned file-reads. Flag any new
-   import of `pptx` inside these two modules.
+   involved").** `resolver/` (a package — `template.py`, `types.py`,
+   `layout.py`, `diagram.py`, `gantt.py`, `connectors.py`) and
+   `validator.py` must not perform pptx writes, network calls, or
+   non-deterministic behavior. `Template.from_yaml` and `load_font_metrics`
+   are the only sanctioned file-reads. Flag any new import of `pptx`
+   inside any `resolver/` submodule.
 3. **Duplicated text-fit logic (section 5).** `text`, `stat`, and
    `shape.text` must share one shrink-to-fit / overflow-check routine. Flag
    a new bespoke wrapping or overflow implementation instead of reusing
@@ -36,8 +39,8 @@ severity:
 5. **Structured error shape (section 8, item 3).** Any new validation or
    render failure surfaced to a caller must be
    `{slide, primitive, field, error, detail, fix}` (see
-   `validator.build_overflow_error` and `render._pydantic_error_to_dict` for
-   the canonical shape) — not a bare `raise ValueError("bad thing")` on a
+   `validator.build_overflow_error` and `render._shared._pydantic_error_to_dict`
+   for the canonical shape) — not a bare `raise ValueError("bad thing")` on a
    path an agent is meant to recover from programmatically.
 6. **Silent-guessing rule (section 8, item 9).** Safe normalization
    (whitespace trimming, type coercion) is fine. Anything that changes
